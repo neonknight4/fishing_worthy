@@ -256,7 +256,9 @@ class _ResultScreenState extends State<ResultScreen> {
                 ),
                 const SizedBox(height: 10),
                 _MoonSolunarCard(phase: moonPhaseVal, windows: solunarWindows),
-                if (waterLevel != null || _levelForecasts.isNotEmpty) ...[
+                // Vodostaj nema smisla za stajaće vode (jezera/bare) — samo reke.
+                if (selectedWaterBody?.type != 'lake' &&
+                    (waterLevel != null || _levelForecasts.isNotEmpty)) ...[
                   const SizedBox(height: 24),
                   const _Label('VODOSTAJ'),
                   const SizedBox(height: 10),

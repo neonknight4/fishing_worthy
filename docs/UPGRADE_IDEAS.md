@@ -21,6 +21,13 @@
   podvez 3"/4"); label "METHOD PLAN". Dovoljno za sekundarni fokus.
 - ✅ **C3 Lovostaj upozorenje** — već postojalo: `_ClosedSeasonsCard` na result ekranu.
 
+**Buduće ideje (zabeleženo, nije početo):**
+- 🔮 **Komercijalna jezera u Srbiji** — baza komercijalnih (method) jezera sa metapodacima
+  (lokacija, vrste, dubina, pravila). Zaseban tip vode uz reke/prirodna jezera.
+- 🔮 **Deep research: šaran + amur na feeder / method / parabolic** — proširiti `bait_advisor`
+  granama po tehnici (uključiti parabolic/štap-feeder za šarana/amura), sa pravilima po
+  temp/sezoni specifično za ta dva ciljna vrste na komercijalcima.
+
 **Ostaje (zahteva odluku/infra, ne čista izmena):**
 - ⏳ **B2 Mohseni air→water model** — treba kalibracione sparene serije (vazduh/voda kroz vreme).
   Trenutni fallback estimate = vazduh − sezonski offset. Prava RHMZ temp već pokriva ≤70km.

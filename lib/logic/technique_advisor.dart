@@ -51,99 +51,63 @@ class TechniqueAdvisor {
     int month, {
     double? waterTempOverride,
   }) {
-    int score = 50;
     final wind = forecast.avgWindSpeed;
-    final rain = forecast.totalPrecipitation;
-    final pressure = forecast.avgPressure;
-    final clouds = forecast.avgCloudCover;
     final waterTemp = waterTempOverride ?? forecast.estimatedWaterTemperature;
 
-    // Species-weighted water temp: bream+carp+barbel (feeder target mix)
-    final tempScore = FishingScore.waterTempScore(waterTemp);
-    score += ((tempScore - 50) * 15 / 50).round();
-    if (waterTemp < 4) score = score.clamp(0, 15);
-    if (waterTemp > 30) score = score.clamp(0, 20);
-
-    // Feeder zahteva mirno za kontrolu štapa
-    if (wind < 10) {
-      score += 10;
-    } else if (wind < 20) {
-      score += 2;
-    } else if (wind < 30) {
-      score -= 12;
-    } else if (wind < 40) {
-      score -= 25;
-    } else {
-      score -= 35;
-    }
-
-    score += FishingScore.windDirectionAdjustment(forecast.avgWindDirection, wind);
-
-    // Lagana kiša kiseonik u vodi; jaka muti
-    if (rain < 0.5) {
-      score += 3;
-    } else if (rain < 2) {
-      score += 8;
-    } else if (rain < 8) {
-      score -= 10;
-    } else if (rain < 20) {
-      score -= 25;
-    } else {
-      score -= 40;
-    }
-
-    if (pressure >= 1013 && pressure <= 1025) {
-      score += 10;
-    } else if (pressure > 1025) {
-      score += 3;
-    } else if (pressure < 1000) {
-      score -= 12;
-    }
-
-    if (clouds >= 40 && clouds <= 80) {
-      score += 10;
-    } else if (clouds > 80) {
-      score += 3;
-    } else if (clouds < 20) {
-      score -= 3;
-    }
-
+    // Feeder: mir za kontrolu štapa; toleriše blago mutnu vodu (mirisni mamac).
+    final windSub = 0.75 * FishingScore.windCalmSub(wind) +
+        0.25 * FishingScore.windDirSub(forecast.avgWindDirection, wind);
+    final parts = <List<double>>[
+      [FishingScore.waterTempScore(waterTemp).toDouble(), 0.28],
+      [FishingScore.pressureSub(forecast.pressureTrendCategory, forecast.avgPressure), 0.17],
+      [windSub, 0.15],
+      [FishingScore.turbiditySubWhite(forecast.turbidity), 0.12],
+      [FishingScore.cloudSub(forecast.avgCloudCover, 40, 80), 0.09],
+      [FishingScore.rainSub(forecast.totalPrecipitation), 0.07],
+    ];
     if (waterLevel != null) {
-      switch (waterLevel.trend) {
-        case WaterLevelTrend.slightRise:
-          score += 15; // šaran aktivan na porastu
-        case WaterLevelTrend.stable:
-          score += 5;
-        case WaterLevelTrend.slightFall:
-          score -= 5;
-        case WaterLevelTrend.largeRise:
-          score -= 20; // mutna voda
-        case WaterLevelTrend.largeFall:
-          score -= 15;
-      }
+      parts.add([FishingScore.levelSubWhite(waterLevel.trend), 0.12]);
     }
 
-    // Feeder radi dobro na mutnoj vodi — mirisni mamac
-    switch (forecast.turbidity) {
-      case WaterTurbidity.veryTurbid:
-        score -= 5;
-      case WaterTurbidity.turbid:
-        score += 5;
-      case WaterTurbidity.slightlyTurbid:
-        score += 8;
-      case WaterTurbidity.clear:
-        score += 3;
-    }
-
-    if (waterBody?.type == 'lake') score += 3;
+    int score = FishingScore.weightedAverage(parts);
+    if (waterTemp < 4) score = score.clamp(0, 18);
+    if (waterTemp > 30) score = score.clamp(0, 25);
 
     return TechniqueScore(
       type: TechniqueType.feeder,
-      score: score.clamp(0, 100),
-      rating: _rating(score.clamp(0, 100)),
+      score: score,
+      rating: _rating(score),
       targetFish: _feederFish(month),
     );
   }
+
+  // Predator (varalica) air-temp sub-score: most active 8–20°C.
+  static double _predatorTempSub(double t) => (t >= 8 && t <= 20)
+      ? 100
+      : t >= 20 && t <= 24
+          ? 72
+          : t >= 5 && t < 8
+              ? 62
+              : t > 24 && t <= 26
+                  ? 50
+                  : t < 5
+                      ? 14
+                      : 32;
+
+  // Float (plovak) air-temp sub-score: most active 12–22°C.
+  static double _floatTempSub(double t) => (t >= 12 && t <= 22)
+      ? 100
+      : t >= 8 && t < 12
+          ? 70
+          : t > 22 && t <= 25
+              ? 72
+              : t >= 5 && t < 8
+                  ? 42
+                  : t > 25 && t <= 28
+                      ? 48
+                      : t < 5
+                          ? 18
+                          : 30;
 
   static TechniqueScore _scoreSpinning(
     DailyForecast forecast,
@@ -151,104 +115,27 @@ class TechniqueAdvisor {
     WaterBody? waterBody,
     int month,
   ) {
-    int score = 50;
-    final temp = forecast.avgTemperature;
     final wind = forecast.avgWindSpeed;
-    final rain = forecast.totalPrecipitation;
-    final pressure = forecast.avgPressure;
-    final clouds = forecast.avgCloudCover;
 
-    // Predatori aktivni 8–20°C; som i na višim
-    if (temp >= 8 && temp <= 20) {
-      score += 15;
-    } else if (temp > 20 && temp <= 26) {
-      score += 5;
-    } else if (temp < 5) {
-      score -= 20;
-    } else if (temp > 26) {
-      score -= 10;
-    }
-
-    // Malo talasanja aktivira predatore
-    if (wind >= 8 && wind <= 20) {
-      score += 8;
-    } else if (wind < 8) {
-      score += 3;
-    } else if (wind < 30) {
-      score -= 12;
-    } else if (wind < 40) {
-      score -= 25;
-    } else {
-      score -= 35;
-    }
-
-    score += FishingScore.windDirectionAdjustment(forecast.avgWindDirection, wind);
-
-    // Predatori love na vid — mutna voda loša
-    if (rain < 1) {
-      score += 3;
-    } else if (rain < 2) {
-      score -= 3;
-    } else if (rain < 8) {
-      score -= 12;
-    } else if (rain < 20) {
-      score -= 25;
-    } else {
-      score -= 40;
-    }
-
-    if (pressure >= 1013 && pressure <= 1025) {
-      score += 5;
-    } else if (pressure < 1000) {
-      score -= 12;
-    } else if (pressure > 1025) {
-      score += 2;
-    }
-
-    // Polumrak aktivira predatore
-    if (clouds >= 20 && clouds <= 60) {
-      score += 10;
-    } else if (clouds > 60) {
-      score += 4;
-    } else if (clouds == 0) {
-      score -= 5;
-    }
-
-    // Bistra voda — predatori love na vid
+    // Predatori: lov na vid (voli bistro), blago talasanje, polumrak.
+    final windSub = 0.7 * FishingScore.windChopSub(wind) +
+        0.3 * FishingScore.windDirSub(forecast.avgWindDirection, wind);
+    final parts = <List<double>>[
+      [_predatorTempSub(forecast.avgTemperature), 0.24],
+      [FishingScore.pressureSub(forecast.pressureTrendCategory, forecast.avgPressure), 0.15],
+      [windSub, 0.18],
+      [FishingScore.turbiditySubPredator(forecast.turbidity), 0.20],
+      [FishingScore.cloudSub(forecast.avgCloudCover, 20, 60), 0.11],
+    ];
     if (waterLevel != null) {
-      switch (waterLevel.trend) {
-        case WaterLevelTrend.stable:
-          score += 10;
-        case WaterLevelTrend.slightFall:
-          score += 8;
-        case WaterLevelTrend.slightRise:
-          score -= 5;
-        case WaterLevelTrend.largeRise:
-          score -= 20;
-        case WaterLevelTrend.largeFall:
-          score -= 5;
-      }
+      parts.add([FishingScore.levelSubPredator(waterLevel.trend), 0.12]);
     }
 
-    // Predatori love na vid — mutna voda loša za varalicarenje
-    switch (forecast.turbidity) {
-      case WaterTurbidity.veryTurbid:
-        score -= 15;
-      case WaterTurbidity.turbid:
-        score -= 8;
-      case WaterTurbidity.slightlyTurbid:
-        score -= 2;
-      case WaterTurbidity.clear:
-        score += 10;
-    }
-
-    // Struja u reci = predatori na zasedi
-    if (waterBody?.type == 'river') score += 5;
-
+    final score = FishingScore.weightedAverage(parts);
     return TechniqueScore(
       type: TechniqueType.spinning,
-      score: score.clamp(0, 100),
-      rating: _rating(score.clamp(0, 100)),
+      score: score,
+      rating: _rating(score),
       targetFish: _spinningFish(month),
     );
   }
@@ -259,92 +146,23 @@ class TechniqueAdvisor {
     WaterBody? waterBody,
     int month,
   ) {
-    int score = 50;
-    final temp = forecast.avgTemperature;
     final wind = forecast.avgWindSpeed;
-    final rain = forecast.totalPrecipitation;
-    final pressure = forecast.avgPressure;
-    final clouds = forecast.avgCloudCover;
 
-    if (temp >= 12 && temp <= 22) {
-      score += 15;
-    } else if (temp >= 8 && temp < 12) {
-      score += 5;
-    } else if (temp < 5) {
-      score -= 15;
-    } else if (temp > 25) {
-      score -= 5;
-    }
-
-    // Plovak zahteva mirnu površinu
-    if (wind < 8) {
-      score += 15;
-    } else if (wind < 15) {
-      score += 5;
-    } else if (wind < 25) {
-      score -= 15;
-    } else if (wind < 35) {
-      score -= 28;
-    } else {
-      score -= 38;
-    }
-
-    score += FishingScore.windDirectionAdjustment(forecast.avgWindDirection, wind);
-
-    if (rain < 1) {
-      score += 8;
-    } else if (rain < 2) {
-      score += 2;
-    } else if (rain < 8) {
-      score -= 12;
-    } else if (rain < 20) {
-      score -= 28;
-    } else {
-      score -= 42;
-    }
-
-    if (pressure >= 1013 && pressure <= 1025) {
-      score += 10;
-    } else if (pressure > 1025) {
-      score += 4;
-    } else if (pressure < 1000) {
-      score -= 10;
-    }
-
-    if (clouds >= 30 && clouds <= 70) {
-      score += 5;
-    }
-
-    // Plovak voli mirnu, bistru vodu
+    // Plovak: traži mirnu površinu i bistru vodu (vidljivost mamca).
+    final windSub = 0.85 * FishingScore.windCalmSub(wind) +
+        0.15 * FishingScore.windDirSub(forecast.avgWindDirection, wind);
+    final parts = <List<double>>[
+      [_floatTempSub(forecast.avgTemperature), 0.26],
+      [FishingScore.pressureSub(forecast.pressureTrendCategory, forecast.avgPressure), 0.15],
+      [windSub, 0.22],
+      [FishingScore.turbiditySubClear(forecast.turbidity), 0.12],
+      [FishingScore.cloudSub(forecast.avgCloudCover, 30, 70), 0.08],
+      [FishingScore.rainSub(forecast.totalPrecipitation), 0.05],
+    ];
     if (waterLevel != null) {
-      switch (waterLevel.trend) {
-        case WaterLevelTrend.stable:
-          score += 10;
-        case WaterLevelTrend.slightFall:
-          score += 5;
-        case WaterLevelTrend.slightRise:
-          score -= 5;
-        case WaterLevelTrend.largeRise:
-          score -= 20;
-        case WaterLevelTrend.largeFall:
-          score -= 8;
-      }
+      parts.add([FishingScore.levelSubWhite(waterLevel.trend), 0.12]);
     }
-
-    // Plovak voli bistru vodu — vidljivost mamca
-    switch (forecast.turbidity) {
-      case WaterTurbidity.veryTurbid:
-        score -= 10;
-      case WaterTurbidity.turbid:
-        score -= 5;
-      case WaterTurbidity.slightlyTurbid:
-        break;
-      case WaterTurbidity.clear:
-        score += 8;
-    }
-
-    // Jezero prirodno za plovak
-    if (waterBody?.type == 'lake') score += 8;
+    final score = FishingScore.weightedAverage(parts);
 
     return TechniqueScore(
       type: TechniqueType.float,

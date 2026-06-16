@@ -180,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _selectSearchResult(LocationInfo loc) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _loading = true;
       _error = null;
@@ -230,14 +231,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openResult() {
     if (_forecasts.isEmpty || _selectedLocation == null) return;
     final forecast = _forecasts[_selectedDayIndex];
-    final score = FishingScore.calculate(forecast, waterLevel: _waterLevelForecast);
+    // Vodostaj (protok) nema smisla za stajaće vode — ne ulazi u ocenu.
+    final isLake = _selectedWaterBody?.type == 'lake';
+    final wl = isLake ? null : _waterLevelForecast;
+    final score = FishingScore.calculate(forecast, waterLevel: wl);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ResultScreen(
           score: score,
           location: _selectedLocation!,
-          waterLevel: _waterLevelForecast,
+          waterLevel: wl,
           selectedWaterBody: _selectedWaterBody,
         ),
       ),
@@ -341,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       textInputAction: TextInputAction.search,
                       onChanged: _searchLocations,
-                      onSubmitted: (_) => _searchFocus.unfocus(),
+                      onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     ),
                   ),
                   const SizedBox(width: 10),

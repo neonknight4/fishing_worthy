@@ -145,7 +145,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     final items = <(String, String)>[];
     if (e.airTemp != null) items.add(('🌡', '${e.airTemp!.toStringAsFixed(0)}°C'));
     if (e.waterTempReal != null) items.add(('💧', '${e.waterTempReal!.toStringAsFixed(1)}°C vode'));
-    if (e.pressure != null) items.add(('📊', '${e.pressure!.toStringAsFixed(0)} hPa'));
+    if (e.pressure != null) items.add(('📊', '${e.pressure!.toStringAsFixed(0)} mbar'));
     if (e.windSpeed != null) items.add(('💨', '${e.windSpeed!.toStringAsFixed(0)} km/h'));
     if (e.waterTrend != null) items.add(('🌊', e.waterTrend!));
     if (e.moonPhase != null) items.add(('🌙', _moonLabel(e.moonPhase!)));

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../data/fishing_seasons.dart';
 import '../logic/bait_advisor.dart';
+import '../logic/bait_recommender.dart';
 import '../logic/technique_advisor.dart';
+import '../models/bait_product.dart';
 import '../models/feeder_plan.dart';
 import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
@@ -15,6 +17,27 @@ import '../utils/moon_calc.dart';
 import '../utils/sun_calc.dart';
 import '../widgets/score_gauge.dart';
 import '../widgets/weather_param_tile.dart';
+
+/// Maps the seasonally-active fish to a feeder-relevant species tag for the
+/// bait recommender. Predators (smuđ/štuka/som/tolstolobik) are skipped —
+/// they aren't caught on groundbait. Returns the first feeder species, or null.
+String? _activeSpeciesTag(List<SeasonalFish> fish) {
+  const map = {
+    'deverika': 'deverika',
+    'šaran': 'saran',
+    'amur': 'amur',
+    'klen': 'klen',
+    'bodorka': 'bodorka',
+    'babuška': 'babuska',
+    'mrena': 'mrena',
+    'skobalj': 'skobalj',
+  };
+  for (final s in fish) {
+    final tag = map[s.name.toLowerCase()];
+    if (tag != null) return tag;
+  }
+  return null;
+}
 
 class ResultScreen extends StatefulWidget {
   final FishingScore score;
@@ -121,6 +144,13 @@ class _ResultScreenState extends State<ResultScreen> {
       waterBody: selectedWaterBody,
       windSpeed: f.avgWindSpeed,
     );
+    final baitCombo = BaitRecommender.recommend(
+      waterTempC: _waterTemp?.tempC ?? f.estimatedWaterTemperature,
+      turbidity: f.turbidity,
+      waterBody: selectedWaterBody,
+      targetSpecies: _activeSpeciesTag(seasonal),
+      discharge: waterLevel?.currentDischarge,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F7FF),
@@ -165,7 +195,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         const SizedBox(height: 8),
                         Text(
                           selectedWaterBody != null
-                              ? '${selectedWaterBody!.name} · ${location.name}'
+                              ? '${selectedWaterBody.name} · ${location.name}'
                               : location.name,
                           style: const TextStyle(color: Colors.white60, fontSize: 13),
                           textAlign: TextAlign.center,
@@ -228,7 +258,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     WeatherParamTile(
                       icon: Icons.speed,
                       label: 'Pritisak',
-                      value: '${f.avgPressure.toStringAsFixed(0)} hPa',
+                      value: '${f.avgPressure.toStringAsFixed(0)} mbar',
                       color: const Color(0xFF8E24AA),
                     ),
                     WeatherParamTile(
@@ -323,6 +353,12 @@ class _ResultScreenState extends State<ResultScreen> {
                   plan: feederPlan,
                   realTemp: _waterTemp != null,
                 ),
+                if (baitCombo != null) ...[
+                  const SizedBox(height: 24),
+                  const _Label('PREPORUČENE TRAPER PRIMAME'),
+                  const SizedBox(height: 10),
+                  _TraperComboCard(combo: baitCombo),
+                ],
                 const SizedBox(height: 24),
                 const _Label('AKTIVNE VRSTE'),
                 const SizedBox(height: 10),
@@ -593,6 +629,201 @@ class _FeederPlanCard extends StatelessWidget {
   }
 }
 
+/// Branded Traper combo recommendation — concrete products tuned to conditions.
+class _TraperComboCard extends StatelessWidget {
+  final BaitCombo combo;
+  const _TraperComboCard({required this.combo});
+
+  static const _traperGreen = Color(0xFF1D5A33);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _traperGreen,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                const Text('TRAPER',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('predlog kombinacije',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
+                ),
+                const Text('🎣', style: TextStyle(fontSize: 15)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                if (combo.secondGroundbait != null) ...[
+                  Row(
+                    children: [
+                      const _MiniLabel('MIKS PRIMAME'),
+                      const Spacer(),
+                      if (combo.mixRatio != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _traperGreen,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('ODNOS  ${combo.mixRatio}',
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _ProductRow(product: combo.groundbait, roleBadge: 'BAZA'),
+                  const SizedBox(height: 10),
+                  _ProductRow(product: combo.secondGroundbait!, roleBadge: 'DODATAK'),
+                  if (combo.pellet != null || combo.additive != null) ...[
+                    const Divider(height: 22),
+                    const Align(alignment: Alignment.centerLeft, child: _MiniLabel('UZ MIKS')),
+                    const SizedBox(height: 8),
+                  ],
+                  for (final p in [if (combo.pellet != null) combo.pellet!, if (combo.additive != null) combo.additive!]) ...[
+                    _ProductRow(product: p),
+                    const SizedBox(height: 10),
+                  ],
+                ] else
+                  for (final p in combo.all) ...[
+                    _ProductRow(product: p),
+                    if (p != combo.all.last) const SizedBox(height: 10),
+                  ],
+                if (combo.reasons.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  ...combo.reasons.map((r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('💡 ', style: TextStyle(fontSize: 12)),
+                            Expanded(
+                              child: Text(r,
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniLabel extends StatelessWidget {
+  final String text;
+  const _MiniLabel(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF546E7A), letterSpacing: 0.8));
+  }
+}
+
+class _ProductRow extends StatelessWidget {
+  final BaitProduct product;
+  final String? roleBadge;
+  const _ProductRow({required this.product, this.roleBadge});
+
+  String get _categoryLabel {
+    switch (product.category) {
+      case BaitCategory.groundbait:
+        return 'PRIMAMA';
+      case BaitCategory.pellet:
+        return 'PELET';
+      case BaitCategory.additive:
+        return 'ADITIV';
+      case BaitCategory.partikl:
+        return 'PARTIKL';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(product.imageAsset, width: 64, height: 64, fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox(
+                  width: 64, height: 64, child: Icon(Icons.image_not_supported, size: 28))),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(_categoryLabel,
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
+                  ),
+                  if (roleBadge != null) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1D5A33),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(roleBadge!,
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+                    ),
+                  ],
+                  if (product.flagship) ...[
+                    const SizedBox(width: 6),
+                    const Text('⭐', style: TextStyle(fontSize: 11)),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 3),
+              Text(product.name,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
+              Text('${product.line} · ${product.flavorColor}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+              const SizedBox(height: 2),
+              Text(product.shortDesc,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ClosedSeasonsCard extends StatelessWidget {
   final List<ClosedSeason> seasons;
   const _ClosedSeasonsCard({required this.seasons});
@@ -631,7 +862,8 @@ class _ClosedSeasonsCard extends StatelessWidget {
               child: Row(
                 children: [
                   if (icon != null)
-                    Image.asset(icon, width: 28, height: 28, fit: BoxFit.contain)
+                    Image.asset(icon, width: 28, height: 28, fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const SizedBox(width: 28))
                   else
                     const SizedBox(width: 28),
                   const SizedBox(width: 8),
@@ -1314,7 +1546,9 @@ class _SeasonalFishSection extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null)
-                Image.asset(icon, width: 36, height: 36, fit: BoxFit.contain)
+                Image.asset(icon, width: 36, height: 36, fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        Text(f.emoji, style: const TextStyle(fontSize: 22)))
               else
                 Text(f.emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 10),
@@ -1432,7 +1666,7 @@ class _PressureTrendCard extends StatelessWidget {
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _color),
                 ),
                 Text(
-                  'Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} hPa/3h',
+                  'Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} mbar/3h',
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],

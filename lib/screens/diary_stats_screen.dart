@@ -159,9 +159,9 @@ class DiaryStatsScreen extends StatelessWidget {
     final pressBest = _bestBand(e, (d) {
       final p = d.pressure;
       if (p == null) return null;
-      if (p < 1010) return '<1010 hPa (nizak)';
-      if (p <= 1020) return '1010–1020 hPa';
-      return '>1020 hPa (visok)';
+      if (p < 1010) return '<1010 mbar (nizak)';
+      if (p <= 1020) return '1010–1020 mbar';
+      return '>1020 mbar (visok)';
     });
     if (pressBest != null) widgets.add(_insightCard('📊', 'Pritisak', pressBest));
 

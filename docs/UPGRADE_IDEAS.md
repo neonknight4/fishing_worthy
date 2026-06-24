@@ -22,6 +22,12 @@
 - ✅ **C3 Lovostaj upozorenje** — već postojalo: `_ClosedSeasonsCard` na result ekranu.
 
 **Buduće ideje (zabeleženo, nije početo):**
+- 🤝 **Partnerska integracija proizvoda (white-label / sponzor)** — kad pristane partner
+  (npr. Meleg Bait): mapiranje generičkih preporuka iz `bait_advisor` (tip mamca/primame) →
+  **konkretni artikli partnera** (slika, ime, opis) u kartici "FEEDER PLAN". Plus:
+  - **"Gde kupiti"** — JSON spisak prodajnih mesta (naziv, grad, adresa, link) + online prodavnica.
+  - Sponzorisana/brendirana sekcija, logo, boje (white-label config).
+  - Modeli: kompenzaciona saradnja (robna razmena) ili sponzorstvo.
 - 🔮 **Komercijalna jezera u Srbiji** — baza komercijalnih (method) jezera sa metapodacima
   (lokacija, vrste, dubina, pravila). Zaseban tip vode uz reke/prirodna jezera.
 - 🔮 **Deep research: šaran + amur na feeder / method / parabolic** — proširiti `bait_advisor`

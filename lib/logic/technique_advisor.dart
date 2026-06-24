@@ -166,8 +166,8 @@ class TechniqueAdvisor {
 
     return TechniqueScore(
       type: TechniqueType.float,
-      score: score.clamp(0, 100),
-      rating: _rating(score.clamp(0, 100)),
+      score: score,
+      rating: _rating(score),
       targetFish: _floatFish(month),
     );
   }

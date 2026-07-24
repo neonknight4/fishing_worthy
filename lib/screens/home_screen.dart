@@ -13,7 +13,7 @@ import '../widgets/components.dart';
 import 'result_screen.dart';
 import 'waters_list_screen.dart';
 import 'regulations_screen.dart';
-import 'diary_list_screen.dart';
+import 'favorites_screen.dart';
 import 'map_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -562,8 +562,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 11),
               _toolButton(Icons.list_alt, 'Lista voda', _openWatersList),
               const SizedBox(width: 11),
-              _toolButton(Icons.menu_book_outlined, 'Dnevnik',
-                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiaryListScreen()))),
+              _toolButton(Icons.bookmark_border, 'Omiljene',
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FavoritesScreen()))),
               const SizedBox(width: 11),
               _toolButton(Icons.gavel, 'Propisi',
                   () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegulationsScreen()))),

@@ -83,7 +83,7 @@ class _ResultScreenState extends State<ResultScreen> {
   void initState() {
     super.initState();
     _score = widget.score;
-    _favService.isFavorite(widget.location).then((v) {
+    _favService.isFavorite(_favLoc).then((v) {
       if (mounted) setState(() => _isFavorite = v);
     });
     _rhmzService
@@ -109,9 +109,28 @@ class _ResultScreenState extends State<ResultScreen> {
     }).catchError((_) {});
   }
 
+  /// Omiljena stavka = izabrana voda (ako je birana), inače lokacija.
+  LocationInfo get _favLoc => widget.selectedWaterBody != null
+      ? LocationInfo(
+          name: widget.selectedWaterBody!.name,
+          latitude: widget.selectedWaterBody!.latitude,
+          longitude: widget.selectedWaterBody!.longitude,
+        )
+      : widget.location;
+
   Future<void> _toggleFavorite() async {
-    final added = await _favService.toggle(widget.location);
+    final added = await _favService.toggle(_favLoc);
+    if (!mounted) return;
     setState(() => _isFavorite = added);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(added
+            ? '${_favLoc.name} dodata u omiljene'
+            : '${_favLoc.name} uklonjena iz omiljenih'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
 

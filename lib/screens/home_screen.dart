@@ -6,6 +6,10 @@ import '../services/favorites_service.dart';
 import '../services/recent_searches_service.dart';
 import '../services/water_service.dart';
 import '../services/weather_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../theme/theme_controller.dart';
+import '../widgets/components.dart';
 import 'result_screen.dart';
 import 'waters_list_screen.dart';
 import 'regulations_screen.dart';
@@ -251,13 +255,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
           _buildHeader(),
-          if (_searchResults.isNotEmpty) _buildSearchDropdown()
-          else if (_showRecent) _buildRecentDropdown(),
+          if (_searchResults.isNotEmpty)
+            _buildSearchDropdown()
+          else if (_showRecent)
+            _buildRecentDropdown(),
           if (_error != null) _buildError(),
           Expanded(child: _loading ? _buildLoading() : _buildBody()),
         ],
@@ -266,182 +271,101 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF01579B), Color(0xFF00695C)],
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text('🎣', style: TextStyle(fontSize: 26)),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Upecaj!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.3,
-                    ),
+    final c = context.c;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 6),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                RichText(
+                  text: TextSpan(
+                    text: 'Upecaj',
+                    style: context.display(size: 26, weight: FontWeight.w800, color: c.green),
+                    children: [
+                      TextSpan(text: '!', style: context.display(size: 26, weight: FontWeight.w800, color: c.gold)),
+                    ],
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                Image.asset('assets/icons/saran.png', width: 34, height: 26, fit: BoxFit.contain),
+                const Spacer(),
+                AppIconButton(
+                  themeController.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  ghost: true,
+                  onTap: () => themeController.toggle(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: c.surface,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: c.shadow,
               ),
-              const SizedBox(height: 4),
-              const Text(
-                'Prognoza uslova za pecanje',
-                style: TextStyle(color: Colors.white60, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              Row(
+              padding: const EdgeInsets.symmetric(horizontal: 15),
+              child: Row(
                 children: [
+                  Icon(Icons.search, color: c.faint, size: 20),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocus,
-                      style: const TextStyle(fontSize: 15),
+                      style: context.ui(size: 15, weight: FontWeight.w600),
                       decoration: InputDecoration(
-                        hintText: 'Grad, reka, jezero...',
-                        hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-                        prefixIcon: Icon(Icons.search, color: Colors.grey.shade500, size: 22),
-                        suffixIcon: _searching
-                            ? const Padding(
-                                padding: EdgeInsets.all(14),
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              )
-                            : _searchController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() => _searchResults = []);
-                                    },
-                                  )
-                                : null,
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        isCollapsed: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        hintText: 'Grad, reka, jezero…',
+                        hintStyle: context.ui(size: 15, weight: FontWeight.w600, color: c.faint),
+                        border: InputBorder.none,
                       ),
                       textInputAction: TextInputAction.search,
                       onChanged: _searchLocations,
                       onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  _GpsButton(onTap: _loading ? null : _useGps),
+                  if (_searching)
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  else if (_searchController.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        setState(() => _searchResults = []);
+                      },
+                      child: Icon(Icons.close, size: 18, color: c.muted),
+                    ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildRecentDropdown() {
+    final c = context.c;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      margin: const EdgeInsets.fromLTRB(18, 6, 18, 0),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: c.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: c.shadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_favorites.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-              child: Text(
-                'OMILJENE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.4,
-                  color: Colors.amber.shade700,
-                ),
-              ),
-            ),
-            ..._favorites.map(
-              (loc) => InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => _selectSearchResult(loc),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  child: Row(
-                    children: [
-                      Icon(Icons.bookmark, color: Colors.amber.shade600, size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          loc.name,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Divider(height: 1, color: Colors.grey.shade200),
+            _dropdownLabel('OMILJENE', c.gold),
+            ..._favorites.map((loc) => _dropdownRow(Icons.bookmark, loc, c.gold)),
+            Divider(height: 1, color: c.line),
           ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-            child: Text(
-              'NEDAVNE PRETRAGE',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.4,
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ),
-          ..._recentSearches.map(
-            (loc) => InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => _selectSearchResult(loc),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                child: Row(
-                  children: [
-                    Icon(Icons.history, color: Colors.grey.shade400, size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(loc.name, style: const TextStyle(fontSize: 14)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _dropdownLabel('NEDAVNE PRETRAGE', c.muted),
+          ..._recentSearches.map((loc) => _dropdownRow(Icons.history, loc, c.faint)),
           const SizedBox(height: 4),
         ],
       ),
@@ -449,79 +373,55 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSearchDropdown() {
+    final c = context.c;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+      margin: const EdgeInsets.fromLTRB(18, 6, 18, 0),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: c.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: c.shadow,
       ),
       child: Column(
-        children: _searchResults
-            .map(
-              (loc) => InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () => _selectSearchResult(loc),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.location_on, color: Color(0xFF0277BD), size: 18),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(loc.name, style: const TextStyle(fontSize: 14)),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-            .toList(),
+        children: _searchResults.map((loc) => _dropdownRow(Icons.location_on, loc, c.water)).toList(),
       ),
     );
   }
 
-  Widget _buildError() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, color: Colors.red.shade700, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _error!,
-              style: TextStyle(color: Colors.red.shade700, fontSize: 13),
-            ),
+  Widget _dropdownLabel(String text, Color color) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        child: Text(text, style: context.ui(size: 10, weight: FontWeight.w800, color: color, letterSpacing: 1.4)),
+      );
+
+  Widget _dropdownRow(IconData icon, LocationInfo loc, Color iconColor) => InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _selectSearchResult(loc),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            children: [
+              Icon(icon, color: iconColor, size: 18),
+              const SizedBox(width: 10),
+              Expanded(child: Text(loc.name, style: context.ui(size: 14, weight: FontWeight.w600))),
+            ],
           ),
-        ],
-      ),
+        ),
+      );
+
+  Widget _buildError() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+      child: WarnBanner(icon: Icons.error_outline, title: 'Greška', message: _error!),
     );
   }
 
   Widget _buildLoading() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 14),
-          Text(
-            'Učitavam prognozu...',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
-          ),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 14),
+          Text('Učitavam prognozu…', style: context.ui(size: 14, color: context.c.muted)),
         ],
       ),
     );
@@ -535,142 +435,120 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('🌊', style: TextStyle(fontSize: 72)),
-            const SizedBox(height: 20),
-            const Text(
-              'Pronađi idealno mesto\nza pecanje',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A237E),
-                height: 1.4,
+    final c = context.c;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Hero CTA
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.l),
+              boxShadow: c.shadowLg,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomRight,
+                colors: [c.green2, c.greenInk],
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Unesi naziv mesta ili pritisni GPS da dobiješ prognozu.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-                height: 1.6,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Gde pecaš\ndanas?', style: context.display(size: 26, color: c.onGreen)),
+                const SizedBox(height: 8),
+                Text('Izaberi vodu i saznaj kolika je šansa za ugriz.',
+                    style: context.ui(size: 13.5, weight: FontWeight.w600, color: c.onGreen.withValues(alpha: 0.82))),
+                const SizedBox(height: 16),
+                AppButton('Moja lokacija',
+                    icon: Icons.my_location,
+                    large: true,
+                    block: true,
+                    kind: BtnKind.ghost,
+                    onTap: _loading ? null : _useGps),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Column(
+              children: [
+                Image.asset('assets/brand/fish-teal.png', width: 90, height: 70, fit: BoxFit.contain),
+                const SizedBox(height: 14),
+                Text('Pronađi idealno mesto', style: context.display(size: 18)),
+                const SizedBox(height: 6),
+                Text('Unesi naziv mesta ili pritisni „Moja lokacija".',
+                    textAlign: TextAlign.center,
+                    style: context.ui(size: 13.5, weight: FontWeight.w500, color: c.muted, height: 1.55)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildForecastContent() {
+    final c = context.c;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // izabrana lokacija
           Row(
             children: [
-              const Icon(Icons.location_pin, color: Color(0xFF0277BD), size: 20),
+              Icon(Icons.location_pin, color: c.water, size: 20),
               const SizedBox(width: 6),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _selectedWaterBody?.name ?? _selectedLocation!.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A237E),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    Text(_selectedWaterBody?.name ?? _selectedLocation!.name,
+                        style: context.display(size: 17), overflow: TextOverflow.ellipsis),
                     if (_selectedWaterBody != null)
-                      Text(
-                        _selectedLocation!.name,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(_selectedLocation!.name,
+                          style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted),
+                          overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'ODABERI DAN',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.5,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 10),
+          const SectionLabel('Odaberi dan'),
           SizedBox(
-            height: 68,
+            height: 66,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _forecasts.length,
-              separatorBuilder: (context, i2) => const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final day = _forecasts[i];
                 final isSelected = i == _selectedDayIndex;
                 final dayName = i == 0 ? 'Danas' : _dayNames[day.date.weekday % 7];
                 final dateStr = '${day.date.day}.${day.date.month}.';
-
                 return GestureDetector(
                   onTap: () => setState(() => _selectedDayIndex = i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 60,
+                  child: Container(
+                    width: 62,
                     decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFF0277BD), Color(0xFF00695C)],
-                            )
-                          : null,
-                      color: isSelected ? null : Colors.white,
+                      color: isSelected ? c.green : c.surface,
                       borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isSelected
-                              ? const Color(0xFF0277BD).withValues(alpha: 0.4)
-                              : Colors.black.withValues(alpha: 0.06),
-                          blurRadius: isSelected ? 12 : 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                      boxShadow: c.shadow,
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          dayName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                          ),
-                        ),
+                        Text(dayName,
+                            style: context.ui(
+                                size: 10,
+                                weight: FontWeight.w700,
+                                color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.muted)),
                         const SizedBox(height: 3),
-                        Text(
-                          dateStr,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected ? Colors.white : const Color(0xFF1A237E),
-                          ),
-                        ),
+                        Text(dateStr,
+                            style: context.display(
+                                size: 14, weight: FontWeight.w700, color: isSelected ? c.onBrand : c.ink)),
                       ],
                     ),
                   ),
@@ -678,108 +556,38 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-          if (_selectedLocation != null) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openWatersList,
-                    icon: const Text('📋', style: TextStyle(fontSize: 15)),
-                    label: const Text('Lista voda', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0277BD),
-                      side: const BorderSide(color: Color(0xFF0277BD)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _openMap,
-                    icon: const Text('🗺', style: TextStyle(fontSize: 15)),
-                    label: const Text('Karta', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF0277BD),
-                      side: const BorderSide(color: Color(0xFF0277BD)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RegulationsScreen()),
-              ),
-              icon: const Text('📏', style: TextStyle(fontSize: 16)),
-              label: const Text(
-                'Lovostaj i dozvoljene mere',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF00695C),
-                side: const BorderSide(color: Color(0xFF00695C)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const DiaryListScreen()),
-              ),
-              icon: const Text('📖', style: TextStyle(fontSize: 16)),
-              label: const Text(
-                'Pecaroški dnevnik',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF5D4037),
-                side: const BorderSide(color: Color(0xFF5D4037)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
+          // alati
+          const SectionLabel('Alati'),
+          Row(
+            children: [
+              _toolButton(Icons.map_outlined, 'Mapa', _openMap),
+              const SizedBox(width: 11),
+              _toolButton(Icons.list_alt, 'Lista voda', _openWatersList),
+              const SizedBox(width: 11),
+              _toolButton(Icons.menu_book_outlined, 'Dnevnik',
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DiaryListScreen()))),
+              const SizedBox(width: 11),
+              _toolButton(Icons.gavel, 'Propisi',
+                  () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegulationsScreen()))),
+            ],
           ),
           if (_waterBodies.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Text(
-                  'OBLIŽNJE VODE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.5,
-                    color: Colors.grey,
-                  ),
-                ),
-                if (_waterLevelLoading) ...[
-                  const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 10,
-                    height: 10,
-                    child: CircularProgressIndicator(strokeWidth: 1.5),
-                  ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(2, 26, 2, 13),
+              child: Row(
+                children: [
+                  Text('OBLIŽNJE VODE',
+                      style: context.ui(size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.7)),
+                  const SizedBox(width: 9),
+                  if (_waterLevelLoading)
+                    const SizedBox(width: 11, height: 11, child: CircularProgressIndicator(strokeWidth: 1.5))
+                  else
+                    Expanded(child: Container(height: 1, color: c.line)),
                 ],
-              ],
+              ),
             ),
-            const SizedBox(height: 10),
             SizedBox(
-              height: 54,
+              height: 40,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _waterBodies.length,
@@ -788,57 +596,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   final wb = _waterBodies[i];
                   final isRiver = wb.type == 'river';
                   final isSelected = _selectedWaterBody?.name == wb.name;
-                  final baseColor = isRiver ? const Color(0xFF0277BD) : const Color(0xFF2E7D32);
-                  final bgColor = isRiver ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9);
-                  final borderColor = isRiver ? const Color(0xFF90CAF9) : const Color(0xFFA5D6A7);
                   return GestureDetector(
                     onTap: _waterLevelLoading ? null : () => _selectWaterBody(wb),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
+                    child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? baseColor : bgColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? baseColor : borderColor,
-                          width: isSelected ? 2 : 1,
-                        ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: baseColor.withValues(alpha: 0.35),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ]
-                            : null,
+                        color: isSelected ? c.green : c.surface3,
+                        borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(isRiver ? '🏞' : '🏖', style: const TextStyle(fontSize: 14)),
+                          Icon(isRiver ? Icons.waves : Icons.water,
+                              size: 14, color: isSelected ? c.onBrand : c.water2),
                           const SizedBox(width: 6),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                wb.name,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : baseColor,
-                                ),
-                              ),
-                              Text(
-                                '${wb.distanceKm.toStringAsFixed(1)} km',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: isSelected ? Colors.white70 : Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
+                          Text('${wb.name} · ${wb.distanceKm.toStringAsFixed(1)} km',
+                              style: context.ui(
+                                  size: 12.5,
+                                  weight: FontWeight.w700,
+                                  color: isSelected ? c.onBrand : c.ink)),
                         ],
                       ),
                     ),
@@ -847,64 +623,44 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _waterLevelLoading ? null : _openResult,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E7D32),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 17),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 6,
-                shadowColor: const Color(0xFF2E7D32).withValues(alpha: 0.45),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('🎣', style: TextStyle(fontSize: 20)),
-                  SizedBox(width: 10),
-                  Text(
-                    'Proveri stanje za pecanje',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          const SizedBox(height: 28),
+          AppButton('Proveri stanje za pecanje',
+              icon: Icons.phishing,
+              large: true,
+              block: true,
+              onTap: _waterLevelLoading ? null : _openResult),
         ],
       ),
     );
   }
-}
 
-class _GpsButton extends StatelessWidget {
-  final VoidCallback? onTap;
-
-  const _GpsButton({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final active = onTap != null;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 52,
-        height: 52,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: active ? 0.22 : 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: active ? 0.5 : 0.2),
+  Widget _toolButton(IconData icon, String label, VoidCallback onTap) {
+    final c = context.c;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+          decoration: BoxDecoration(
+            color: c.surface,
+            borderRadius: BorderRadius.circular(AppRadius.m),
+            boxShadow: c.shadow,
           ),
-        ),
-        child: Icon(
-          Icons.my_location,
-          color: active ? Colors.white : Colors.white38,
-          size: 24,
+          child: Column(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                    color: c.green.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+                child: Icon(icon, size: 21, color: c.green),
+              ),
+              const SizedBox(height: 8),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: context.ui(size: 11.5, weight: FontWeight.w700)),
+            ],
+          ),
         ),
       ),
     );

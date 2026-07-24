@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
+import '../widgets/components.dart';
 
 /// Pattern analysis over diary entries: top species + which conditions
 /// produce the most fish (temp band, water-level trend, pressure band).
@@ -14,133 +17,127 @@ class DiaryStatsScreen extends StatelessWidget {
     final totalFish = entries.fold<int>(0, (s, e) => s + e.totalCatch);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF01579B),
-        foregroundColor: Colors.white,
-        title: const Text('Statistika dnevnika', style: TextStyle(fontSize: 16)),
-      ),
-      body: entries.isEmpty
-          ? Center(
-              child: Text('Nema dovoljno unosa za statistiku',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              children: [
-                _summaryRow(entries.length, totalFish),
-                const SizedBox(height: 20),
-                _speciesSection(),
-                const SizedBox(height: 20),
-                if (withCatch.length >= 2) ...[
-                  _Label('NAJBOLJI USLOVI ZA ULOV'),
-                  const SizedBox(height: 10),
-                  ..._conditionInsights(withCatch),
-                ] else
-                  _hint('Zabeleži bar 2 izlaska sa ulovom da vidiš obrasce uslova.'),
-              ],
-            ),
-    );
-  }
-
-  Widget _summaryRow(int trips, int fish) {
-    return Row(
-      children: [
-        Expanded(child: _statCard('🎣', '$trips', 'izlazaka')),
-        const SizedBox(width: 12),
-        Expanded(child: _statCard('🐟', '$fish', 'riba ukupno')),
-        const SizedBox(width: 12),
-        Expanded(child: _statCard('📊', trips > 0 ? (fish / trips).toStringAsFixed(1) : '0', 'po izlasku')),
-      ],
-    );
-  }
-
-  Widget _statCard(String icon, String value, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Column(
+      body: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF1A237E))),
-          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          const PageHeader(title: 'Statistika', subtitle: 'Uvidi iz dnevnika', showBack: true),
+          Expanded(
+            child: entries.isEmpty
+                ? Center(
+                    child: Text('Nema dovoljno unosa za statistiku',
+                        style: context.ui(color: context.c.muted)),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+                    children: [
+                      _summaryRow(context, entries.length, totalFish),
+                      const SectionHeader('Ulov po vrsti'),
+                      _speciesSection(context),
+                      if (withCatch.length >= 2) ...[
+                        const SectionHeader('Najbolji uslovi za ulov'),
+                        ..._conditionInsights(context, withCatch),
+                      ] else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _hint(context, 'Zabeleži bar 2 izlaska sa ulovom da vidiš obrasce uslova.'),
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _speciesSection() {
+  Widget _summaryRow(BuildContext context, int trips, int fish) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Expanded(child: _statCard(context, '$trips', 'izlazaka')),
+          const SizedBox(width: 10),
+          Expanded(child: _statCard(context, '$fish', 'riba ukupno')),
+          const SizedBox(width: 10),
+          Expanded(child: _statCard(context, trips > 0 ? (fish / trips).toStringAsFixed(1) : '0', 'po izlasku')),
+        ],
+      ),
+    );
+  }
+
+  Widget _statCard(BuildContext context, String value, String label) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(AppRadius.m),
+        boxShadow: c.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: context.display(size: 26, weight: FontWeight.w800)),
+          const SizedBox(height: 5),
+          Text(label, style: context.ui(size: 11, weight: FontWeight.w700, color: c.muted)),
+        ],
+      ),
+    );
+  }
+
+  Widget _speciesSection(BuildContext context) {
+    final c = context.c;
     final counts = <String, int>{};
     for (final e in entries) {
-      for (final c in e.catches) {
-        counts[c.species] = (counts[c.species] ?? 0) + c.count;
+      for (final ct in e.catches) {
+        counts[ct.species] = (counts[ct.species] ?? 0) + ct.count;
       }
     }
-    if (counts.isEmpty) return _hint('Još nema zabeleženog ulova.');
+    if (counts.isEmpty) return _hint(context, 'Još nema zabeleženog ulova.');
     final sorted = counts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final max = sorted.first.value;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Label('ULOV PO VRSTI'),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
-          ),
-          child: Column(
-            children: sorted.map((e) {
-              final icon = fishIconAsset(e.key);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 26, height: 26,
-                      child: icon != null ? Image.asset(icon, fit: BoxFit.contain) : const Text('🐟', style: TextStyle(fontSize: 18)),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 80,
-                      child: Text(e.key, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A237E)), overflow: TextOverflow.ellipsis),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: max > 0 ? e.value / max : 0,
-                          minHeight: 12,
-                          backgroundColor: const Color(0xFFE3F2FD),
-                          valueColor: const AlwaysStoppedAnimation(Color(0xFF0277BD)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text('${e.value}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0277BD))),
-                  ],
+    return AppCard(
+      child: Column(
+        children: sorted.map((e) {
+          final icon = fishIconAsset(e.key);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: icon != null ? Image.asset(icon, fit: BoxFit.contain) : const Text('🐟', style: TextStyle(fontSize: 18)),
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 74,
+                  child: Text(e.key, style: context.ui(size: 13, weight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                ),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(
+                      value: max > 0 ? e.value / max : 0,
+                      minHeight: 12,
+                      backgroundColor: c.surface3,
+                      valueColor: AlwaysStoppedAnimation(c.green),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text('${e.value}', style: context.ui(size: 13, weight: FontWeight.w700, color: c.green)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
   // Which band of each condition yields the most fish-per-trip.
-  List<Widget> _conditionInsights(List<DiaryEntry> e) {
+  List<Widget> _conditionInsights(BuildContext context, List<DiaryEntry> e) {
     final widgets = <Widget>[];
 
-    // Water temp (real, fallback air)
     final tempBest = _bestBand(e, (d) {
       final t = d.waterTempReal ?? d.airTemp;
       if (t == null) return null;
@@ -149,13 +146,11 @@ class DiaryStatsScreen extends StatelessWidget {
       if (t <= 20) return '14–20°C (blago)';
       return '>20°C (toplo)';
     });
-    if (tempBest != null) widgets.add(_insightCard('🌡', 'Temperatura vode', tempBest));
+    if (tempBest != null) widgets.add(_insightCard(context, Icons.thermostat, 'Temperatura vode', tempBest));
 
-    // Water level trend
     final trendBest = _bestBand(e, (d) => d.waterTrend);
-    if (trendBest != null) widgets.add(_insightCard('🌊', 'Vodostaj', trendBest));
+    if (trendBest != null) widgets.add(_insightCard(context, Icons.water, 'Vodostaj', trendBest));
 
-    // Pressure band
     final pressBest = _bestBand(e, (d) {
       final p = d.pressure;
       if (p == null) return null;
@@ -163,13 +158,12 @@ class DiaryStatsScreen extends StatelessWidget {
       if (p <= 1020) return '1010–1020 mbar';
       return '>1020 mbar (visok)';
     });
-    if (pressBest != null) widgets.add(_insightCard('📊', 'Pritisak', pressBest));
+    if (pressBest != null) widgets.add(_insightCard(context, Icons.speed, 'Pritisak', pressBest));
 
-    if (widgets.isEmpty) widgets.add(_hint('Nedovoljno podataka o uslovima.'));
+    if (widgets.isEmpty) widgets.add(_hint(context, 'Nedovoljno podataka o uslovima.'));
     return widgets;
   }
 
-  // Returns "label · avg X riba/izlazak" for the band with best average.
   String? _bestBand(List<DiaryEntry> entries, String? Function(DiaryEntry) classify) {
     final sums = <String, int>{};
     final counts = <String, int>{};
@@ -190,45 +184,42 @@ class DiaryStatsScreen extends StatelessWidget {
     return '$best · ${bestAvg.toStringAsFixed(1)} riba/izlazak';
   }
 
-  Widget _insightCard(String icon, String label, String value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF546E7A))),
-                const SizedBox(height: 3),
-                Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
-              ],
+  Widget _insightCard(BuildContext context, IconData icon, String label, String value) {
+    final c = context.c;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AppCard(
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(color: c.surface3, borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 20, color: c.water),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: context.ui(size: 11, weight: FontWeight.w700, color: c.muted)),
+                  const SizedBox(height: 3),
+                  Text(value, style: context.ui(size: 13, weight: FontWeight.w700, color: c.green)),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _hint(String text) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(12)),
-        child: Text('ℹ️ $text', style: const TextStyle(fontSize: 12, color: Color(0xFF8D6E63), height: 1.4)),
-      );
-}
-
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
-  @override
-  Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5, color: Color(0xFF546E7A)));
+  Widget _hint(BuildContext context, String text) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: c.surface3, borderRadius: BorderRadius.circular(AppRadius.s)),
+      child: Text('ℹ️ $text', style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted, height: 1.4)),
+    );
+  }
 }

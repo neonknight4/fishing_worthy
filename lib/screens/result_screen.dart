@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../data/fishing_seasons.dart';
 import '../logic/bait_advisor.dart';
 import '../logic/bait_recommender.dart';
@@ -303,7 +304,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   realTemp: _waterTemp != null,
                 ),
                 if (curatedCombo != null) ...[
-                  const SectionHeader('Kurirana Traper kombinacija'),
+                  const SectionHeader('Traper kombinacija'),
                   _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
                 ] else if (baitCombo != null) ...[
                   const SectionHeader('Preporučene Traper primame'),
@@ -444,19 +445,19 @@ class _ScoreHero extends StatelessWidget {
           Row(
             children: [
               SizedBox(
-                width: 118,
+                width: 138,
                 child: Stack(
                   alignment: Alignment.bottomCenter,
                   children: [
-                    HalfGauge(value: v.toDouble(), color: numColor, trackColor: Colors.white.withValues(alpha: 0.18)),
+                    HalfGauge(value: v.toDouble(), width: 138, color: numColor, trackColor: Colors.white.withValues(alpha: 0.18)),
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                      padding: const EdgeInsets.only(bottom: 4),
                       child: RichText(
                         text: TextSpan(
                           text: '$v',
-                          style: context.display(size: 44, weight: FontWeight.w800, color: onHero),
+                          style: context.display(size: 34, weight: FontWeight.w800, color: onHero),
                           children: [
-                            TextSpan(text: '/100', style: context.display(size: 16, color: onHero.withValues(alpha: 0.6))),
+                            TextSpan(text: '/100', style: context.display(size: 13, color: onHero.withValues(alpha: 0.6))),
                           ],
                         ),
                       ),
@@ -992,11 +993,23 @@ class _ProductRow extends StatelessWidget {
     }
   }
 
-  /// Otvara m-fishing stranicu proizvoda u eksternom browseru.
+  static const _shopFallback = 'https://www.m-fishing.rs/shop/';
+
+  /// Otvara m-fishing stranicu proizvoda. Ako je stranica uklonjena (404),
+  /// vodi na prodavnicu (`/shop/`) kao safe-case.
   Future<void> _openProduct() async {
     final url = product.productUrl;
     if (url == null) return;
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    var target = url;
+    try {
+      final resp = await http
+          .head(Uri.parse(url))
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 404 || resp.statusCode == 410) target = _shopFallback;
+    } catch (_) {
+      // Mreža/timeout/HEAD nedozvoljen — probaj originalni link.
+    }
+    await launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication);
   }
 
   @override

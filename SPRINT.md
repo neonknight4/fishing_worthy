@@ -1,4 +1,17 @@
-# FishingWorthy — Sprint plan
+# Upecaj! — Sprint plan
+
+> **AŽURIRANJE 2026-07-24:** Živa mapa puta je prešla u **`docs/PROJECT_STATUS.md`**.
+> Ovaj fajl je originalni Traper-coach/pop-up plan. Status ukratko:
+> - **SPRINT 1 (groundbait coach)** — isporučeno kroz kurirane `WaterCombo` (priprema + hranjenje
+>   u "Kako pripremiti" collapsible na Traper kartici). ✅ suštinski done (bez zasebnog timera 1.5).
+> - **SPRINT 2 (pop-up/wafter)** — ⬜ nije rađeno (blokira verifikacija pravila S0.1/S0.2).
+> - **SPRINT 3 (dnevnik inteligencija)** — ⬜ nije rađeno.
+> - **SPRINT 4 (cast-test / notif / Mohseni)** — ⬜ nije rađeno.
+> - Uz to, van ovog plana: pun **redizajn (light+dark) + rename "Upecaj!" + bottom nav + logo**.
+>
+> Detalji + prioriteti + moji predlozi → `docs/PROJECT_STATUS.md`.
+
+---
 
 > Izvor: `docs/UPGRADE_IDEAS_2.md` (deep research #2) + zaostalo iz `docs/UPGRADE_IDEAS.md`.
 > Redosled po vrednosti + zavisnosti. Svaki task: **šta · fajlovi · acceptance · trud (S/M/L)**.

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../data/fishing_seasons.dart';
+import '../models/fishing_score.dart';
 import '../models/weather_data.dart';
 import '../services/water_service.dart';
+import '../services/weather_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/components.dart';
+import 'result_screen.dart';
 
 class MapScreen extends StatefulWidget {
   final double latitude;
@@ -28,15 +31,50 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final _waterService = WaterService();
+  final _weatherService = WeatherService();
   final _mapController = MapController();
   List<WaterBody> _waters = [];
   WaterBody? _selected;
   bool _loading = true;
+  bool _choosing = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// Izbor vode: u push modu (iz Home) vrati [WaterBody]; u tab modu
+  /// učitaj prognozu i otvori Result direktno.
+  Future<void> _chooseWater(WaterBody w) async {
+    if (widget.showBack) {
+      Navigator.pop(context, w);
+      return;
+    }
+    setState(() => _choosing = true);
+    try {
+      final forecasts = await _weatherService.fetchForecast(w.latitude, w.longitude);
+      if (forecasts.isEmpty) return;
+      final isLake = w.type != 'river';
+      final wl = isLake
+          ? null
+          : await _waterService.fetchWaterLevelForecast(w.latitude, w.longitude, waterBodyName: w.name);
+      final score = FishingScore.calculate(forecasts.first, waterLevel: wl);
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(
+            score: score,
+            location: LocationInfo(name: w.name, latitude: w.latitude, longitude: w.longitude),
+            waterLevel: wl,
+            selectedWaterBody: w,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _choosing = false);
+    }
   }
 
   Future<void> _load() async {
@@ -204,8 +242,8 @@ class _MapScreenState extends State<MapScreen> {
                   tone: ChipTone.gold, small: true),
             ],
             const SizedBox(height: 12),
-            AppButton('Izaberi ovu vodu',
-                icon: Icons.check, block: true, onTap: () => Navigator.pop(context, w)),
+            AppButton(_choosing ? 'Učitavam…' : 'Izaberi ovu vodu',
+                icon: Icons.check, block: true, onTap: _choosing ? null : () => _chooseWater(w)),
           ],
         ),
       ),

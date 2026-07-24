@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/fishing_seasons.dart';
 import '../logic/bait_advisor.dart';
+import '../logic/bait_recommender.dart';
 import '../logic/technique_advisor.dart';
+import '../data/traper_combos.dart';
+import '../models/bait_product.dart';
+import '../models/water_combo.dart';
 import '../models/feeder_plan.dart';
 import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
@@ -13,8 +18,38 @@ import 'diary_entry_screen.dart';
 import '../utils/fish_icons.dart';
 import '../utils/moon_calc.dart';
 import '../utils/sun_calc.dart';
-import '../widgets/score_gauge.dart';
-import '../widgets/weather_param_tile.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../widgets/components.dart';
+
+/// Maps the seasonally-active fish to a feeder-relevant species tag for the
+/// bait recommender. Predators (smuđ/štuka/som/tolstolobik) are skipped —
+/// they aren't caught on groundbait. Returns the first feeder species, or null.
+String? _activeSpeciesTag(List<SeasonalFish> fish) {
+  const map = {
+    'deverika': 'deverika',
+    'šaran': 'saran',
+    'amur': 'amur',
+    'klen': 'klen',
+    'bodorka': 'bodorka',
+    'babuška': 'babuska',
+    'mrena': 'mrena',
+    'skobalj': 'skobalj',
+  };
+  for (final s in fish) {
+    final tag = map[s.name.toLowerCase()];
+    if (tag != null) return tag;
+  }
+  return null;
+}
+
+/// Grubo preslikavanje dnevnog skora (0–100) na procenu aktivnosti ribe —
+/// modifikator količine/finoće hranjenja u kuriranom combo-u.
+FishActivity _activityFromScore(int score) {
+  if (score >= 65) return FishActivity.visoka;
+  if (score >= 40) return FishActivity.umerena;
+  return FishActivity.niska;
+}
 
 class ResultScreen extends StatefulWidget {
   final FishingScore score;
@@ -78,23 +113,6 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _isFavorite = added);
   }
 
-  Color get _gradientStart {
-    final s = widget.score.score;
-    if (s >= 80) return const Color(0xFF1B5E20);
-    if (s >= 60) return const Color(0xFF33691E);
-    if (s >= 40) return const Color(0xFFE65100);
-    if (s >= 20) return const Color(0xFFBF360C);
-    return const Color(0xFFB71C1C);
-  }
-
-  Color get _gradientEnd {
-    final s = widget.score.score;
-    if (s >= 80) return const Color(0xFF00695C);
-    if (s >= 60) return const Color(0xFF2E7D32);
-    if (s >= 40) return const Color(0xFFF9A825);
-    if (s >= 20) return const Color(0xFFE64A19);
-    return const Color(0xFFC62828);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,134 +139,115 @@ class _ResultScreenState extends State<ResultScreen> {
       waterBody: selectedWaterBody,
       windSpeed: f.avgWindSpeed,
     );
+    final baitCombo = BaitRecommender.recommend(
+      waterTempC: _waterTemp?.tempC ?? f.estimatedWaterTemperature,
+      turbidity: f.turbidity,
+      waterBody: selectedWaterBody,
+      targetSpecies: _activeSpeciesTag(seasonal),
+      discharge: waterLevel?.currentDischarge,
+    );
+    // Hibrid: ekspertski kurirani recept ako voda ima combo za tekuću sezonu;
+    // inače (775 nepokrivenih voda) fallback na algoritamski baitCombo.
+    final curatedCombo = comboFor(selectedWaterBody?.name, seasonForMonth(now.month));
+    final fishActivity = _activityFromScore(score.score);
 
+    final c = context.c;
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 340,
             pinned: true,
-            backgroundColor: _gradientStart,
-            foregroundColor: Colors.white,
+            backgroundColor: c.green2,
+            foregroundColor: c.onGreen,
+            leading: const BackButton(),
             title: Text(
               selectedWaterBody?.name ?? location.name,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: context.display(size: 17, color: c.onGreen),
               overflow: TextOverflow.ellipsis,
             ),
             actions: [
               IconButton(
-                icon: Icon(
-                  _isFavorite ? Icons.bookmark : Icons.bookmark_border,
-                  color: Colors.white,
-                ),
+                icon: Icon(_isFavorite ? Icons.bookmark : Icons.bookmark_border, color: c.onGreen),
                 tooltip: _isFavorite ? 'Ukloni iz omiljenih' : 'Dodaj u omiljene',
                 onPressed: _toggleFavorite,
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [_gradientStart, _gradientEnd],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 48),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ScoreGauge(score: score, dark: true),
-                        const SizedBox(height: 8),
-                        Text(
-                          selectedWaterBody != null
-                              ? '${selectedWaterBody!.name} · ${location.name}'
-                              : location.name,
-                          style: const TextStyle(color: Colors.white60, fontSize: 13),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '🌅 ${_fmtTime(sunrise)}   🌇 ${_fmtTime(sunset)}',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                _ScoreHero(
+                  score: score,
+                  waterName: selectedWaterBody?.name ?? location.name,
+                  place: selectedWaterBody != null ? location.name : null,
+                  sunrise: _fmtTime(sunrise),
+                  sunset: _fmtTime(sunset),
+                ),
                 if (protectedArea != null) ...[
+                  const SizedBox(height: 12),
                   _ProtectedAreaCard(area: protectedArea),
-                  const SizedBox(height: 10),
                 ],
                 if (closedNow.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   _ClosedSeasonsCard(seasons: closedNow),
-                  const SizedBox(height: 10),
                 ],
-                if (protectedArea != null || closedNow.isNotEmpty) const SizedBox(height: 6),
-                const _Label('VREMENSKE PRILIKE'),
-                const SizedBox(height: 12),
+                const SectionHeader('Uslovi'),
                 GridView.count(
-                  crossAxisCount: 2,
+                  crossAxisCount: 3,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 1.15,
+                  childAspectRatio: 0.92,
                   children: [
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.thermostat,
-                      label: 'Temperatura',
-                      value: '${f.avgTemperature.toStringAsFixed(1)}°C',
-                      color: const Color(0xFFE53935),
+                      value: f.avgTemperature.toStringAsFixed(1),
+                      unit: '°C',
+                      label: 'Vazduh',
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.air,
-                      label: 'Vetar · ${_windDirLabel(f.avgWindDirection)}',
-                      value: '${f.avgWindSpeed.toStringAsFixed(1)} km/h',
-                      color: const Color(0xFF039BE5),
+                      value: f.avgWindSpeed.toStringAsFixed(0),
+                      unit: 'km/h',
+                      label: 'Vetar ${_windDirLabel(f.avgWindDirection)}',
                     ),
-                    WeatherParamTile(
-                      icon: Icons.water_drop,
-                      label: 'Padavine',
-                      value: '${f.totalPrecipitation.toStringAsFixed(1)} mm',
-                      color: const Color(0xFF1E88E5),
-                    ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.speed,
+                      value: f.avgPressure.toStringAsFixed(0),
+                      unit: 'mbar',
                       label: 'Pritisak',
-                      value: '${f.avgPressure.toStringAsFixed(0)} hPa',
-                      color: const Color(0xFF8E24AA),
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
+                      icon: Icons.water_drop,
+                      value: f.totalPrecipitation.toStringAsFixed(1),
+                      unit: 'mm',
+                      label: 'Padavine',
+                    ),
+                    ConditionTile(
                       icon: Icons.cloud,
+                      value: '${f.avgCloudCover}',
+                      unit: '%',
                       label: 'Oblačnost',
-                      value: '${f.avgCloudCover}%',
-                      color: const Color(0xFF546E7A),
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.water,
-                      label: _waterTemp != null
-                          ? 'Temp. vode · ${_waterTemp!.station}'
-                          : 'Temp. vode (proc.)',
                       value: _waterTemp != null
-                          ? '${_waterTemp!.tempC.toStringAsFixed(1)}°C'
-                          : '~${f.estimatedWaterTemperature.toStringAsFixed(0)}°C',
-                      color: const Color(0xFF00838F),
+                          ? _waterTemp!.tempC.toStringAsFixed(1)
+                          : '~${f.estimatedWaterTemperature.toStringAsFixed(0)}',
+                      unit: '°C',
+                      label: _waterTemp != null ? 'Voda' : 'Voda (proc.)',
                     ),
                   ],
                 ),
+                if (score.positives.isNotEmpty || score.negatives.isNotEmpty) ...[
+                  const SectionHeader('Zašto ovaj skor'),
+                  FactorList([
+                    for (final p in score.positives) FactorItem(positive: true, title: p),
+                    for (final n in score.negatives) FactorItem(positive: false, title: n),
+                  ]),
+                ],
                 const SizedBox(height: 16),
                 _PressureTrendCard(
                   category: f.pressureTrendCategory,
@@ -259,9 +258,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 // Vodostaj nema smisla za stajaće vode (jezera/bare) — samo reke.
                 if (selectedWaterBody?.type != 'lake' &&
                     (waterLevel != null || _levelForecasts.isNotEmpty)) ...[
-                  const SizedBox(height: 24),
-                  const _Label('VODOSTAJ'),
-                  const SizedBox(height: 10),
+                  const SectionHeader('Vodostaj'),
                   if (waterLevel != null)
                     _WaterLevelTile(
                       waterLevel: waterLevel,
@@ -271,7 +268,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'RHMZ prognoza nivoa — reke u blizini',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+                      style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted),
                     ),
                     const SizedBox(height: 6),
                     ..._levelForecasts.map((fc) => Padding(
@@ -280,9 +277,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         )),
                   ],
                 ],
-                const SizedBox(height: 24),
-                const _Label('PROGNOZA PO INTERVALIMA'),
-                const SizedBox(height: 10),
+                const SectionHeader('Prognoza po intervalima'),
                 _TechniqueFilter(
                   selected: _intervalTech,
                   onChanged: (t) => setState(() => _intervalTech = t),
@@ -298,72 +293,51 @@ class _ResultScreenState extends State<ResultScreen> {
                   sunrise: sunrise,
                   sunset: sunset,
                 ),
-                if (score.positives.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  const _Label('POVOLJNO'),
-                  const SizedBox(height: 10),
-                  ...score.positives.map((p) => _FactorTile(text: p, positive: true)),
-                ],
-                if (score.negatives.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const _Label('NEPOVOLJNO'),
-                  const SizedBox(height: 10),
-                  ...score.negatives.map((n) => _FactorTile(text: n, positive: false)),
-                ],
-                const SizedBox(height: 24),
-                const _Label('TEHNIKE ZA DANAS'),
-                const SizedBox(height: 10),
+                const SectionHeader('Tehnike za danas'),
                 _TechniqueSection(techniques: techniques, feederRig: feederRig),
-                const SizedBox(height: 24),
-                _Label(selectedWaterBody?.type == 'lake'
-                    ? 'METHOD PLAN ZA DANAS'
-                    : 'FEEDER PLAN ZA DANAS'),
-                const SizedBox(height: 10),
+                SectionHeader(selectedWaterBody?.type == 'lake'
+                    ? 'Method plan za danas'
+                    : 'Feeder plan za danas'),
                 _FeederPlanCard(
                   plan: feederPlan,
                   realTemp: _waterTemp != null,
                 ),
-                const SizedBox(height: 24),
-                const _Label('AKTIVNE VRSTE'),
-                const SizedBox(height: 10),
+                if (curatedCombo != null) ...[
+                  const SectionHeader('Kurirana Traper kombinacija'),
+                  _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
+                ] else if (baitCombo != null) ...[
+                  const SectionHeader('Preporučene Traper primame'),
+                  _TraperComboCard(combo: baitCombo),
+                ],
+                const SectionHeader('Aktivne vrste'),
                 _SeasonalFishSection(fish: seasonal),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      final entry = DiaryEntry(
-                        date: f.date,
-                        location: location.name,
-                        water: selectedWaterBody?.name,
-                        lat: location.latitude,
-                        lon: location.longitude,
-                        airTemp: f.avgTemperature,
-                        pressure: f.avgPressure,
-                        windSpeed: f.avgWindSpeed,
-                        waterTempReal: _waterTemp?.tempC,
-                        waterTrend: waterLevel?.trendLabel,
-                        moonPhase: moonPhaseVal,
-                      );
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DiaryEntryScreen(entry: entry, isNew: true),
-                        ),
-                      );
-                    },
-                    icon: const Text('📖', style: TextStyle(fontSize: 16)),
-                    label: const Text(
-                      'Zabeleži u dnevnik',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
+                const SizedBox(height: 24),
+                AppButton(
+                  'Zabeleži u dnevnik',
+                  icon: Icons.menu_book_outlined,
+                  block: true,
+                  large: true,
+                  onTap: () {
+                    final entry = DiaryEntry(
+                      date: f.date,
+                      location: location.name,
+                      water: selectedWaterBody?.name,
+                      lat: location.latitude,
+                      lon: location.longitude,
+                      airTemp: f.avgTemperature,
+                      pressure: f.avgPressure,
+                      windSpeed: f.avgWindSpeed,
+                      waterTempReal: _waterTemp?.tempC,
+                      waterTrend: waterLevel?.trendLabel,
+                      moonPhase: moonPhaseVal,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DiaryEntryScreen(entry: entry, isNew: true),
+                      ),
+                    );
+                  },
                 ),
               ]),
             ),
@@ -387,19 +361,124 @@ String _windDirLabel(double degrees) {
 
 // ── widgets ──────────────────────────────────────────────────────────────────
 
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
+String _verdict(int s) => s >= 80
+    ? 'Odlično'
+    : s >= 60
+        ? 'Dobro'
+        : s >= 40
+            ? 'Osrednje'
+            : s >= 20
+                ? 'Slabo'
+                : 'Loše';
+
+String _verdictSub(int s) => s >= 60
+    ? 'Uslovi rade u tvoju korist — iskoristi dan.'
+    : s >= 40
+        ? 'Promenljivo — cilja se pravi prozor u danu.'
+        : 'Teški uslovi — strpljenje i fino hranjenje.';
+
+/// Score hero: tamno zeleni gradijent + poluluk merač + verdikt (light + dark).
+class _ScoreHero extends StatelessWidget {
+  final FishingScore score;
+  final String waterName;
+  final String? place;
+  final String sunrise, sunset;
+  const _ScoreHero({
+    required this.score,
+    required this.waterName,
+    this.place,
+    required this.sunrise,
+    required this.sunset,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.5,
-        color: Color(0xFF546E7A),
+    final c = context.c;
+    final v = score.score;
+    final numColor = c.score(v);
+    const onHero = Color(0xFFF4EFE1);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.l),
+        boxShadow: c.shadowLg,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [c.green2, c.greenInk],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(waterName, style: context.display(size: 18, color: onHero), overflow: TextOverflow.ellipsis),
+                    if (place != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 13, color: onHero),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(place!,
+                                  style: context.ui(size: 12.5, weight: FontWeight.w600, color: onHero.withValues(alpha: 0.8)),
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              AppChip('🌅 $sunrise  🌇 $sunset', tone: ChipTone.gold, small: true),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(
+                width: 118,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    HalfGauge(value: v.toDouble(), color: numColor, trackColor: Colors.white.withValues(alpha: 0.18)),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: RichText(
+                        text: TextSpan(
+                          text: '$v',
+                          style: context.display(size: 44, weight: FontWeight.w800, color: onHero),
+                          children: [
+                            TextSpan(text: '/100', style: context.display(size: 16, color: onHero.withValues(alpha: 0.6))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_verdict(v), style: context.display(size: 20, color: onHero)),
+                    const SizedBox(height: 3),
+                    Text(_verdictSub(v),
+                        style: context.ui(size: 12.5, weight: FontWeight.w600, color: onHero.withValues(alpha: 0.82))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -411,42 +490,37 @@ class _LevelForecastTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final up = forecast.trend == 'raste';
     final down = forecast.trend == 'pada';
-    final color = up
-        ? const Color(0xFF0277BD)
-        : (down ? const Color(0xFFE65100) : const Color(0xFF2E7D32));
-    final icon = up ? '↗' : (down ? '↘' : '→');
+    final color = up ? c.good : (down ? c.gold : c.muted);
+    final icon = up ? Icons.trending_up : (down ? Icons.trending_down : Icons.trending_flat);
     final sign = forecast.deltaCm >= 0 ? '+' : '';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
       ),
       child: Row(
         children: [
-          Text(icon, style: TextStyle(fontSize: 22, color: color)),
+          Icon(icon, size: 24, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${forecast.river} · ${forecast.station}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A237E)),
-                ),
+                Text('${forecast.river} · ${forecast.station}',
+                    style: context.ui(size: 13, weight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(
                   '${forecast.todayCm} → ${forecast.forecastCm} cm  ($sign${forecast.deltaCm} cm, ${forecast.trend})',
-                  style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+                  style: context.ui(size: 12, weight: FontWeight.w700, color: color),
                 ),
-                Text(
-                  'stanica ${forecast.distanceKm.toStringAsFixed(0)} km · narednih 3–4 dana',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
+                Text('stanica ${forecast.distanceKm.toStringAsFixed(0)} km · narednih 3–4 dana',
+                    style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint)),
               ],
             ),
           ),
@@ -466,9 +540,9 @@ class _FeederPlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.c.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFA5D6A7)),
+        border: Border.all(color: context.c.green.withValues(alpha: 0.4)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -490,8 +564,8 @@ class _FeederPlanCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Mamac na udici',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF546E7A))),
+                    Text('Mamac na udici',
+                        style: context.ui(size: 11, weight: FontWeight.w700, color: context.c.muted)),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
@@ -500,11 +574,11 @@ class _FeederPlanCard extends StatelessWidget {
                           .map((b) => Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE8F5E9),
+                                  color: context.c.green.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(b,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                                    style: context.ui(size: 12, weight: FontWeight.w600, color: context.c.green)),
                               ))
                           .toList(),
                     ),
@@ -514,25 +588,25 @@ class _FeederPlanCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 22),
-          _row('🧺', 'Primama', plan.groundbait),
+          _row(context, '🧺', 'Primama', plan.groundbait),
           const SizedBox(height: 10),
-          _row('⚖️', 'Količina hrane', plan.feedAmount),
+          _row(context, '⚖️', 'Količina hrane', plan.feedAmount),
           const Divider(height: 22),
           Row(
             children: [
-              Expanded(child: _miniStat('Hranilica', plan.feederType)),
-              Expanded(child: _miniStat('Težina', plan.feederWeight)),
+              Expanded(child: _miniStat(context, 'Hranilica', plan.feederType)),
+              Expanded(child: _miniStat(context, 'Težina', plan.feederWeight)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _miniStat('Podvez', plan.hooklength)),
-              Expanded(child: _miniStat('Udica', plan.hookSize)),
+              Expanded(child: _miniStat(context, 'Podvez', plan.hooklength)),
+              Expanded(child: _miniStat(context, 'Udica', plan.hookSize)),
             ],
           ),
           const SizedBox(height: 12),
-          _miniStat('Kadenca zabacivanja', plan.cadence),
+          _miniStat(context, 'Kadenca zabacivanja', plan.cadence),
           if (plan.notes.isNotEmpty) ...[
             const SizedBox(height: 14),
             ...plan.notes.map((n) => Padding(
@@ -543,7 +617,7 @@ class _FeederPlanCard extends StatelessWidget {
                       const Text('💡 ', style: TextStyle(fontSize: 12)),
                       Expanded(
                         child: Text(n,
-                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                            style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
                       ),
                     ],
                   ),
@@ -554,14 +628,16 @@ class _FeederPlanCard extends StatelessWidget {
             realTemp
                 ? 'Plan prema pravoj temp. vode (RHMZ), bistrini i vodostaju.'
                 : 'Plan prema proceni temp. vode, bistrini i vodostaju.',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade400, fontStyle: FontStyle.italic),
+            style: context.ui(size: 10, weight: FontWeight.w500, color: context.c.faint)
+                .copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),
     );
   }
 
-  Widget _row(String icon, String label, String value) {
+  Widget _row(BuildContext context, String icon, String label, String value) {
+    final c = context.c;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,9 +647,9 @@ class _FeederPlanCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF546E7A))),
+              Text(label, style: context.ui(size: 11, weight: FontWeight.w700, color: c.muted)),
               const SizedBox(height: 3),
-              Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E), height: 1.3)),
+              Text(value, style: context.ui(size: 13, weight: FontWeight.w600, color: c.ink, height: 1.3)),
             ],
           ),
         ),
@@ -581,14 +657,433 @@ class _FeederPlanCard extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(String label, String value) {
+  Widget _miniStat(BuildContext context, String label, String value) {
+    final c = context.c;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF90A4AE))),
+        Text(label, style: context.ui(size: 10, weight: FontWeight.w700, color: c.muted)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A237E))),
+        Text(value, style: context.ui(size: 13, weight: FontWeight.w600, color: c.ink)),
       ],
+    );
+  }
+}
+
+/// Branded Traper combo recommendation — concrete products tuned to conditions.
+class _TraperComboCard extends StatelessWidget {
+  final BaitCombo combo;
+  const _TraperComboCard({required this.combo});
+
+  static const _traperGreen = Color(0xFF1D5A33);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.c.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
+        boxShadow: context.c.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _traperGreen,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                const Text('TRAPER',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('predlog kombinacije',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
+                ),
+                const Text('🎣', style: TextStyle(fontSize: 15)),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                if (combo.secondGroundbait != null) ...[
+                  Row(
+                    children: [
+                      const _MiniLabel('MIKS PRIMAME'),
+                      const Spacer(),
+                      if (combo.mixRatio != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: _traperGreen,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text('ODNOS  ${combo.mixRatio}',
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _ProductRow(product: combo.groundbait, roleBadge: 'BAZA'),
+                  const SizedBox(height: 10),
+                  _ProductRow(product: combo.secondGroundbait!, roleBadge: 'DODATAK'),
+                  if (combo.pellet != null || combo.additive != null) ...[
+                    const Divider(height: 22),
+                    const Align(alignment: Alignment.centerLeft, child: _MiniLabel('UZ MIKS')),
+                    const SizedBox(height: 8),
+                  ],
+                  for (final p in [if (combo.pellet != null) combo.pellet!, if (combo.additive != null) combo.additive!]) ...[
+                    _ProductRow(product: p),
+                    const SizedBox(height: 10),
+                  ],
+                ] else
+                  for (final p in combo.all) ...[
+                    _ProductRow(product: p),
+                    if (p != combo.all.last) const SizedBox(height: 10),
+                  ],
+                if (combo.reasons.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  ...combo.reasons.map((r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('💡 ', style: TextStyle(fontSize: 12)),
+                            Expanded(
+                              child: Text(r,
+                                  style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kurirani, ekspertski Traper recept za konkretnu vodu + sezonu.
+/// Reuse `_ProductRow`/`_MiniLabel`; dodaje collapsible "Kako pripremiti"
+/// (priprema + hranjenje + modifikator po aktivnosti ribe).
+class _CuratedComboCard extends StatefulWidget {
+  final WaterCombo combo;
+  final FishActivity activity;
+  const _CuratedComboCard({required this.combo, required this.activity});
+
+  @override
+  State<_CuratedComboCard> createState() => _CuratedComboCardState();
+}
+
+class _CuratedComboCardState extends State<_CuratedComboCard> {
+  static const _traperGreen = Color(0xFF1D5A33);
+  bool _prepOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final combo = widget.combo;
+    final extras = <Widget>[
+      if (combo.pellet != null) _ProductRow(product: combo.pellet!),
+      for (final a in combo.additives) _ProductRow(product: a),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: context.c.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
+        boxShadow: context.c.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand header + sezona
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _traperGreen,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                const Text('TRAPER',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('ekspertski recept za ovu vodu',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(seasonLabel(combo.season).toUpperCase(),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.8)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (combo.species.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: combo.species
+                        .map((s) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: context.c.green.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+                              child: Text(s,
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF2E7D32))),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (combo.second != null) ...[
+                  Row(
+                    children: [
+                      const _MiniLabel('MIKS PRIMAME'),
+                      const Spacer(),
+                      if (combo.mixRatio != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: _traperGreen, borderRadius: BorderRadius.circular(8)),
+                          child: Text('ODNOS  ${combo.mixRatio}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _ProductRow(product: combo.base, roleBadge: 'BAZA'),
+                  const SizedBox(height: 10),
+                  _ProductRow(product: combo.second!, roleBadge: 'DODATAK'),
+                ] else
+                  _ProductRow(product: combo.base, roleBadge: 'BAZA'),
+                if (extras.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  const Align(alignment: Alignment.centerLeft, child: _MiniLabel('UZ SMEŠU')),
+                  const SizedBox(height: 8),
+                  for (final w in extras) ...[w, const SizedBox(height: 10)],
+                ],
+                if (combo.hookbait != null) ...[
+                  const Divider(height: 22),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('🪝 ', style: TextStyle(fontSize: 13)),
+                      const _MiniLabel('MAMAC'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(combo.hookbait!,
+                            style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.ink, height: 1.35)),
+                      ),
+                    ],
+                  ),
+                ],
+                const Divider(height: 22),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🐟 ', style: TextStyle(fontSize: 13)),
+                    Expanded(
+                      child: Text(activityMod(widget.activity),
+                          style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () => setState(() => _prepOpen = !_prepOpen),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: context.c.surface3,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _traperGreen.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🥣 ', style: TextStyle(fontSize: 14)),
+                        const Expanded(
+                          child: Text('Kako pripremiti i hraniti',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _traperGreen)),
+                        ),
+                        Icon(_prepOpen ? Icons.expand_less : Icons.expand_more, color: _traperGreen, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_prepOpen) ...[
+                  const SizedBox(height: 10),
+                  _PrepBlock(label: 'PRIPREMA SMEŠE', text: combo.prep),
+                  const SizedBox(height: 10),
+                  _PrepBlock(label: 'HRANJENJE', text: combo.loading),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Jedan blok teksta unutar "Kako pripremiti" sekcije.
+class _PrepBlock extends StatelessWidget {
+  final String label;
+  final String text;
+  const _PrepBlock({required this.label, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MiniLabel(label),
+        const SizedBox(height: 4),
+        Text(text, style: context.ui(size: 12, weight: FontWeight.w500, color: context.c.ink, height: 1.4)),
+      ],
+    );
+  }
+}
+
+class _MiniLabel extends StatelessWidget {
+  final String text;
+  const _MiniLabel(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: context.ui(size: 10, weight: FontWeight.w800, color: context.c.muted, letterSpacing: 0.8));
+  }
+}
+
+class _ProductRow extends StatelessWidget {
+  final BaitProduct product;
+  final String? roleBadge;
+  const _ProductRow({required this.product, this.roleBadge});
+
+  String get _categoryLabel {
+    switch (product.category) {
+      case BaitCategory.groundbait:
+        return 'PRIMAMA';
+      case BaitCategory.pellet:
+        return 'PELET';
+      case BaitCategory.additive:
+        return 'ADITIV';
+      case BaitCategory.partikl:
+        return 'PARTIKL';
+    }
+  }
+
+  /// Otvara m-fishing stranicu proizvoda u eksternom browseru.
+  Future<void> _openProduct() async {
+    final url = product.productUrl;
+    if (url == null) return;
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final hasShop = product.productUrl != null;
+    return InkWell(
+      onTap: hasShop ? _openProduct : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(product.imageAsset, width: 64, height: 64, fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Icon(Icons.image_not_supported, size: 28, color: c.faint))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: c.green.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(_categoryLabel,
+                          style: context.ui(size: 9, weight: FontWeight.w800, color: c.green)),
+                    ),
+                    if (roleBadge != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: c.green,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(roleBadge!,
+                            style: context.ui(size: 9, weight: FontWeight.w800, color: c.onBrand)),
+                      ),
+                    ],
+                    if (product.flagship) ...[
+                      const SizedBox(width: 6),
+                      const Text('⭐', style: TextStyle(fontSize: 11)),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(product.name, style: context.ui(size: 13.5, weight: FontWeight.w700, color: c.ink)),
+                Text('${product.line} · ${product.flavorColor}',
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
+                const SizedBox(height: 2),
+                Text(product.shortDesc,
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted, height: 1.3)),
+                if (hasShop) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.storefront, size: 13, color: c.green),
+                      const SizedBox(width: 4),
+                      Text('Kupi na m-fishing.rs',
+                          style: context.ui(
+                              size: 10.5,
+                              weight: FontWeight.w700,
+                              color: c.green,
+                              letterSpacing: 0)
+                              .copyWith(
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: c.green.withValues(alpha: 0.4))),
+                      const SizedBox(width: 3),
+                      Icon(Icons.open_in_new, size: 12, color: c.green),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -599,28 +1094,24 @@ class _ClosedSeasonsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.5)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: c.coral, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text('🚫', style: TextStyle(fontSize: 16)),
-              SizedBox(width: 8),
-              Text(
-                'Lovostaj — zaštitni period',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFE65100),
-                ),
-              ),
+              Icon(Icons.block, size: 16, color: c.coral),
+              const SizedBox(width: 8),
+              Text('Lovostaj — zaštitni period',
+                  style: context.ui(size: 13, weight: FontWeight.w700, color: c.coral)),
             ],
           ),
           const SizedBox(height: 8),
@@ -631,50 +1122,33 @@ class _ClosedSeasonsCard extends StatelessWidget {
               child: Row(
                 children: [
                   if (icon != null)
-                    Image.asset(icon, width: 28, height: 28, fit: BoxFit.contain)
+                    Image.asset(icon, width: 28, height: 28, fit: BoxFit.contain,
+                        errorBuilder: (_, _, _) => const SizedBox(width: 28))
                   else
                     const SizedBox(width: 28),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      s.species,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF5D4037),
-                      ),
-                    ),
+                    child: Text(s.species, style: context.ui(size: 12, weight: FontWeight.w600, color: c.ink)),
                   ),
                   if (s.minSizeCm != null)
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0277BD).withValues(alpha: 0.1),
+                        color: c.green.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        'min ${s.minSizeCm} cm',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF0277BD),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text('min ${s.minSizeCm} cm',
+                          style: context.ui(size: 10, weight: FontWeight.w700, color: c.green)),
                     ),
-                  Text(
-                    s.dateRange,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFBF360C)),
-                  ),
+                  Text(s.dateRange, style: context.ui(size: 11, weight: FontWeight.w600, color: c.coral)),
                 ],
               ),
             );
           }),
           const SizedBox(height: 4),
-          const Text(
-            'Lokalni propisi mogu se razlikovati od republičkih.',
-            style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-          ),
+          Text('Lokalni propisi mogu se razlikovati od republičkih.',
+              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -687,45 +1161,38 @@ class _ProtectedAreaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEDE7F6),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.35)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: c.gold, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text('🔒', style: TextStyle(fontSize: 16)),
-              SizedBox(width: 8),
-              Text(
-                'Zaštićeno područje — posebna dozvola',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF6A1B9A),
-                ),
+              Icon(Icons.lock, size: 16, color: c.gold),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Zaštićeno područje — posebna dozvola',
+                    style: context.ui(size: 13, weight: FontWeight.w700, color: c.gold)),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            area.name,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4A148C)),
-          ),
+          Text(area.name, style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
           const SizedBox(height: 3),
           Text(
             'Godišnja dozvola: ~${area.permitPrice.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} din',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6A1B9A)),
+            style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Opšta ribarska dozvola ne važi — proverite kod upravljača područja.',
-            style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-          ),
+          Text('Opšta ribarska dozvola ne važi — proverite kod upravljača područja.',
+              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -748,13 +1215,14 @@ class _MoonSolunarCard extends StatelessWidget {
         : '${pct.round()}% osvetljenosti (opada)';
 
     final sorted = [...windows]..sort((a, b) => a.start.compareTo(b.start));
+    final c = context.c;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A237E).withValues(alpha: 0.05),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1A237E).withValues(alpha: 0.15)),
+        boxShadow: c.shadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,30 +1235,13 @@ class _MoonSolunarCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A237E),
-                      ),
-                    ),
-                    Text(
-                      illumination,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
+                    Text(name, style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
+                    Text(illumination, style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
                   ],
                 ),
               ),
-              const Text(
-                'SOLUNAR',
-                style: TextStyle(
-                  fontSize: 9,
-                  letterSpacing: 1.2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('SOLUNAR',
+                  style: context.ui(size: 9, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.2)),
             ],
           ),
           const SizedBox(height: 10),
@@ -800,79 +1251,28 @@ class _MoonSolunarCard extends StatelessWidget {
             children: sorted.map((w) {
               final s = '${w.start.hour.toString().padLeft(2, '0')}:${w.start.minute.toString().padLeft(2, '0')}';
               final e = '${w.end.hour.toString().padLeft(2, '0')}:${w.end.minute.toString().padLeft(2, '0')}';
-              final color = w.isMajor ? const Color(0xFF1A237E) : const Color(0xFF455A64);
-              final bg = w.isMajor
-                  ? const Color(0xFF1A237E).withValues(alpha: 0.10)
-                  : Colors.grey.withValues(alpha: 0.08);
+              final color = w.isMajor ? c.gold : c.muted;
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: bg,
+                  color: w.isMajor ? c.gold.withValues(alpha: 0.16) : c.surface3,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(w.isMajor ? '🌙' : '🌛', style: const TextStyle(fontSize: 11)),
                     const SizedBox(width: 4),
-                    Text(
-                      '$s–$e',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: w.isMajor ? FontWeight.w700 : FontWeight.normal,
-                        color: color,
-                      ),
-                    ),
+                    Text('$s–$e',
+                        style: context.ui(
+                            size: 11, weight: w.isMajor ? FontWeight.w700 : FontWeight.w500, color: color)),
                     const SizedBox(width: 3),
-                    Text(
-                      w.isMajor ? 'MAJOR' : 'minor',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
+                    Text(w.isMajor ? 'MAJOR' : 'minor',
+                        style: context.ui(size: 9, weight: FontWeight.w600, color: color, letterSpacing: 0.4)),
                   ],
                 ),
               );
             }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FactorTile extends StatelessWidget {
-  final String text;
-  final bool positive;
-
-  const _FactorTile({required this.text, required this.positive});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = positive ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
-    final bgColor = positive ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(
-            positive ? Icons.check_circle_rounded : Icons.cancel_rounded,
-            color: color,
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w500),
-            ),
           ),
         ],
       ),
@@ -886,42 +1286,31 @@ class _WaterLevelTile extends StatelessWidget {
 
   const _WaterLevelTile({required this.waterLevel, this.waterBodyName});
 
-  Color get _trendColor {
+  Color _trendColor(AppColors c) {
     switch (waterLevel.trend) {
       case WaterLevelTrend.slightRise:
-        return const Color(0xFF2E7D32);
+        return c.good;
       case WaterLevelTrend.stable:
-        return const Color(0xFF0277BD);
+        return c.muted;
       case WaterLevelTrend.slightFall:
-        return const Color(0xFFE65100);
+        return c.gold;
       case WaterLevelTrend.largeRise:
       case WaterLevelTrend.largeFall:
-        return const Color(0xFFC62828);
-    }
-  }
-
-  Color get _bgColor {
-    switch (waterLevel.trend) {
-      case WaterLevelTrend.slightRise:
-        return const Color(0xFFE8F5E9);
-      case WaterLevelTrend.stable:
-        return const Color(0xFFE3F2FD);
-      case WaterLevelTrend.slightFall:
-        return const Color(0xFFFFF3E0);
-      case WaterLevelTrend.largeRise:
-      case WaterLevelTrend.largeFall:
-        return const Color(0xFFFFEBEE);
+        return c.coral;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
+    final tc = _trendColor(c);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _bgColor,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _trendColor.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: tc, width: 4)),
       ),
       child: Row(
         children: [
@@ -931,26 +1320,10 @@ class _WaterLevelTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  waterLevel.trendLabel,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _trendColor,
-                  ),
-                ),
-                Text(
-                  waterBodyName ?? 'Obližnja voda',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _trendColor,
-                  ),
-                ),
-                Text(
-                  'Protok: ${waterLevel.currentDischarge.toStringAsFixed(1)} m³/s',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                Text(waterLevel.trendLabel, style: context.ui(size: 14, weight: FontWeight.w700, color: tc)),
+                Text(waterBodyName ?? 'Obližnja voda', style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
+                Text('Protok: ${waterLevel.currentDischarge.toStringAsFixed(1)} m³/s',
+                    style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted)),
               ],
             ),
           ),
@@ -973,6 +1346,7 @@ class _TechniqueFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Row(
       children: _opts.map((o) {
         final sel = o.$1 == selected;
@@ -983,25 +1357,20 @@ class _TechniqueFilter extends StatelessWidget {
               onTap: () => onChanged(o.$1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 9),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: sel ? const Color(0xFF0277BD) : Colors.white,
+                  color: sel ? c.green : c.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: sel ? const Color(0xFF0277BD) : Colors.grey.shade300),
+                  border: Border.all(color: sel ? c.green : c.line),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(o.$2, style: const TextStyle(fontSize: 13)),
                     const SizedBox(width: 5),
-                    Text(
-                      o.$3,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: sel ? Colors.white : const Color(0xFF546E7A),
-                      ),
-                    ),
+                    Text(o.$3,
+                        style: context.ui(
+                            size: 12.5, weight: FontWeight.w700, color: sel ? c.onBrand : c.muted)),
                   ],
                 ),
               ),
@@ -1066,14 +1435,6 @@ class _ThreeHourSlots extends StatelessWidget {
     return (base + _crepBonus(hours.first.time)).clamp(0, 100);
   }
 
-  Color _scoreColor(int score) {
-    if (score >= 80) return const Color(0xFF1B5E20);
-    if (score >= 60) return const Color(0xFF2E7D32);
-    if (score >= 40) return const Color(0xFFE65100);
-    if (score >= 20) return const Color(0xFFBF360C);
-    return const Color(0xFFB71C1C);
-  }
-
   SolunarWindow? _solunarForSlot(DateTime start) {
     final end = start.add(const Duration(hours: 3));
     for (final w in solunarWindows) {
@@ -1084,6 +1445,7 @@ class _ThreeHourSlots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final isSummer = forecast.date.month >= 6 && forecast.date.month <= 8;
     final slots = forecast.getThreeHourSlots();
     final scores = slots.map((h) => h.isEmpty ? 0 : _slotScore(h)).toList();
@@ -1105,24 +1467,16 @@ class _ThreeHourSlots extends StatelessWidget {
         final temp = hours.map((h) => h.temperature).reduce((a, b) => a + b) / hours.length;
         final wind = hours.map((h) => h.windSpeed).reduce((a, b) => a + b) / hours.length;
         final solunar = _solunarForSlot(start);
-        final scoreColor = _scoreColor(slotScoreVal);
+        final scoreColor = c.score(slotScoreVal);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: isGolden ? const Color(0xFFFFFDE7) : Colors.white,
+            color: isGolden ? Color.alphaBlend(c.gold.withValues(alpha: 0.14), c.surface) : c.surface,
             borderRadius: BorderRadius.circular(12),
-            border: isGolden ? Border.all(color: const Color(0xFFFFB300), width: 1.5) : null,
-            boxShadow: [
-              BoxShadow(
-                color: isGolden
-                    ? const Color(0xFFFFB300).withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.05),
-                blurRadius: isGolden ? 10 : 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: isGolden ? Border.all(color: c.gold, width: 1.5) : null,
+            boxShadow: c.shadow,
           ),
           child: Row(
             children: [
@@ -1133,21 +1487,11 @@ class _ThreeHourSlots extends StatelessWidget {
                     if (isGolden) const Text('⭐', style: TextStyle(fontSize: 10)),
                     if (isGolden) const SizedBox(width: 2),
                     if (solunar != null) ...[
-                      Text(
-                        solunar.isMajor ? '🌙' : '🌛',
-                        style: const TextStyle(fontSize: 10),
-                      ),
+                      Text(solunar.isMajor ? '🌙' : '🌛', style: const TextStyle(fontSize: 10)),
                       const SizedBox(width: 2),
                     ],
                     Expanded(
-                      child: Text(
-                        timeLabel,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF37474F),
-                        ),
-                      ),
+                      child: Text(timeLabel, style: context.ui(size: 12, weight: FontWeight.w700, color: c.ink)),
                     ),
                   ],
                 ),
@@ -1156,41 +1500,20 @@ class _ThreeHourSlots extends StatelessWidget {
               Container(
                 width: 42,
                 height: 26,
-                decoration: BoxDecoration(
-                  color: scoreColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: scoreColor, borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
-                child: Text(
-                  '$slotScoreVal',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text('$slotScoreVal',
+                    style: context.ui(size: 13, weight: FontWeight.w800, color: Colors.white)),
               ),
               const SizedBox(width: 12),
-              const Icon(Icons.thermostat, size: 14, color: Color(0xFFE53935)),
-              Text(
-                '${temp.toStringAsFixed(0)}°',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF37474F)),
-              ),
+              Icon(Icons.thermostat, size: 14, color: c.coral),
+              Text('${temp.toStringAsFixed(0)}°', style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const SizedBox(width: 8),
-              const Icon(Icons.air, size: 14, color: Color(0xFF039BE5)),
-              Text(
-                wind.toStringAsFixed(0),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF37474F)),
-              ),
+              Icon(Icons.air, size: 14, color: c.water),
+              Text(wind.toStringAsFixed(0), style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const Spacer(),
               Text(
-                slotScoreVal >= 80
-                    ? '🎣'
-                    : slotScoreVal >= 60
-                        ? '👍'
-                        : slotScoreVal >= 40
-                            ? '😐'
-                            : '👎',
+                slotScoreVal >= 80 ? '🎣' : slotScoreVal >= 60 ? '👍' : slotScoreVal >= 40 ? '😐' : '👎',
                 style: const TextStyle(fontSize: 16),
               ),
             ],
@@ -1206,29 +1529,31 @@ class _TechniqueSection extends StatelessWidget {
   final String feederRig;
   const _TechniqueSection({required this.techniques, required this.feederRig});
 
-  Color _color(TechniqueType type) {
+  Color _color(TechniqueType type, AppColors c) {
     switch (type) {
       case TechniqueType.feeder:
-        return const Color(0xFF0277BD);
+        return c.water;
       case TechniqueType.spinning:
-        return const Color(0xFF6A1B9A);
+        return c.gold;
       case TechniqueType.float:
-        return const Color(0xFF00695C);
+        return c.green;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Column(
       children: techniques.map((t) {
-        final color = _color(t.type);
+        final color = _color(t.type, c);
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
+            color: c.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
+            boxShadow: c.shadow,
+            border: Border(left: BorderSide(color: color, width: 4)),
           ),
           child: Row(
             children: [
@@ -1238,25 +1563,13 @@ class _TechniqueSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      t.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: color,
-                      ),
-                    ),
+                    Text(t.name, style: context.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
                     const SizedBox(height: 2),
-                    Text(
-                      t.targetFish.join(' · '),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+                    Text(t.targetFish.join(' · '),
+                        style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted)),
                     if (t.type == TechniqueType.feeder) ...[
                       const SizedBox(height: 3),
-                      Text(
-                        '🎣 $feederRig',
-                        style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
-                      ),
+                      Text('🎣 $feederRig', style: context.ui(size: 11, weight: FontWeight.w600, color: color)),
                     ],
                   ],
                 ),
@@ -1264,19 +1577,10 @@ class _TechniqueSection extends StatelessWidget {
               Container(
                 width: 46,
                 height: 28,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: c.score(t.score), borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
-                child: Text(
-                  t.score.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text(t.score.toString(),
+                    style: context.ui(size: 13, weight: FontWeight.w800, color: Colors.white)),
               ),
             ],
           ),
@@ -1300,39 +1604,25 @@ class _SeasonalFishSection extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.c.surface,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: context.c.shadow,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null)
-                Image.asset(icon, width: 36, height: 36, fit: BoxFit.contain)
+                Image.asset(icon, width: 36, height: 36, fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) =>
+                        Text(f.emoji, style: const TextStyle(fontSize: 22)))
               else
                 Text(f.emoji, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    f.name,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A237E),
-                    ),
-                  ),
-                  Text(
-                    f.technique,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
+                  Text(f.name, style: context.ui(size: 13, weight: FontWeight.w700, color: context.c.ink)),
+                  Text(f.technique, style: context.ui(size: 11, weight: FontWeight.w500, color: context.c.muted)),
                 ],
               ),
             ],
@@ -1379,62 +1669,45 @@ class _PressureTrendCard extends StatelessWidget {
     }
   }
 
-  Color get _color {
+  Color _accent(AppColors c) {
     switch (category) {
       case PressureTrendCategory.stable:
-        return const Color(0xFF2E7D32);
+        return c.good;
       case PressureTrendCategory.preFront:
-        return const Color(0xFFE65100);
+        return c.gold;
       case PressureTrendCategory.slowRise:
-        return const Color(0xFF0277BD);
+        return c.green;
       case PressureTrendCategory.rapidFall:
-        return const Color(0xFFC62828);
+        return c.coral;
       case PressureTrendCategory.rapidRise:
-        return const Color(0xFFE65100);
-    }
-  }
-
-  Color get _bgColor {
-    switch (category) {
-      case PressureTrendCategory.stable:
-        return const Color(0xFFE8F5E9);
-      case PressureTrendCategory.preFront:
-        return const Color(0xFFFFF3E0);
-      case PressureTrendCategory.slowRise:
-        return const Color(0xFFE3F2FD);
-      case PressureTrendCategory.rapidFall:
-        return const Color(0xFFFFEBEE);
-      case PressureTrendCategory.rapidRise:
-        return const Color(0xFFFFF3E0);
+        return c.gold;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
+    final accent = _accent(c);
     final sign = trendPer3h >= 0 ? '+' : '';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _bgColor,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _color.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: accent, width: 4)),
       ),
       child: Row(
         children: [
-          Text(_icon, style: TextStyle(fontSize: 20, color: _color)),
+          Text(_icon, style: TextStyle(fontSize: 20, color: accent)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _label,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _color),
-                ),
-                Text(
-                  'Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} hPa/3h',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
+                Text(_label, style: context.ui(size: 13, weight: FontWeight.w700, color: accent)),
+                Text('Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} mbar/3h',
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
               ],
             ),
           ),

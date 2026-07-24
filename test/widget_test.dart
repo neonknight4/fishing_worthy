@@ -11,6 +11,6 @@ import 'package:fishing_worthy/main.dart';
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const FishingWorthyApp());
-    expect(find.text('FishingWorthy'), findsOneWidget);
+    expect(find.text('Upecaj!'), findsOneWidget);
   });
 }

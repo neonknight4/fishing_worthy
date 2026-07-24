@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
+import '../widgets/components.dart';
 import 'diary_entry_screen.dart';
 import 'diary_stats_screen.dart';
 
 class DiaryListScreen extends StatefulWidget {
-  const DiaryListScreen({super.key});
+  final bool showBack;
+  const DiaryListScreen({super.key, this.showBack = true});
 
   @override
   State<DiaryListScreen> createState() => _DiaryListScreenState();
@@ -46,7 +50,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Odustani')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Obriši', style: TextStyle(color: Colors.red)),
+            child: Text('Obriši', style: TextStyle(color: context.c.coral)),
           ),
         ],
       ),
@@ -63,66 +67,60 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
   Widget build(BuildContext context) {
     final totalCatch = _entries.fold<int>(0, (s, e) => s + e.totalCatch);
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF01579B),
-        foregroundColor: Colors.white,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Pecaroški dnevnik', style: TextStyle(fontSize: 16)),
-            Text(
-              _entries.isEmpty ? 'Nema unosa' : '${_entries.length} izlazaka · $totalCatch riba',
-              style: const TextStyle(fontSize: 12, color: Colors.white60),
-            ),
-          ],
-        ),
-        actions: [
-          if (_entries.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.bar_chart),
-              tooltip: 'Statistika',
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => DiaryStatsScreen(entries: _entries)),
-              ),
-            ),
+      body: Column(
+        children: [
+          PageHeader(
+            title: 'Dnevnik',
+            subtitle: _entries.isEmpty ? 'Nema unosa' : '${_entries.length} izlazaka · $totalCatch riba',
+            showBack: widget.showBack,
+            actions: [
+              if (_entries.isNotEmpty)
+                AppIconButton(Icons.bar_chart, onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DiaryStatsScreen(entries: _entries)),
+                    )),
+            ],
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _entries.isEmpty
+                    ? _empty()
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
+                        itemCount: _entries.length,
+                        itemBuilder: (_, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: 11),
+                          child: _EntryCard(
+                            entry: _entries[i],
+                            fmtDate: _fmtDate,
+                            onTap: () => _openEntry(_entries[i]),
+                            onDelete: () => _confirmDelete(_entries[i]),
+                          ),
+                        ),
+                      ),
+          ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _entries.isEmpty
-              ? _empty()
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                  itemCount: _entries.length,
-                  itemBuilder: (_, i) => _EntryCard(
-                    entry: _entries[i],
-                    fmtDate: _fmtDate,
-                    onTap: () => _openEntry(_entries[i]),
-                    onDelete: () => _confirmDelete(_entries[i]),
-                  ),
-                ),
     );
   }
 
   Widget _empty() {
+    final c = context.c;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('📖', style: TextStyle(fontSize: 56)),
+            Icon(Icons.menu_book_outlined, size: 56, color: c.faint),
             const SizedBox(height: 16),
-            const Text('Dnevnik je prazan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
+            Text('Dnevnik je prazan', style: context.display(size: 18)),
             const SizedBox(height: 8),
             Text(
-              'Otvori prognozu za lokaciju i pritisni "Zabeleži u dnevnik" da sačuvaš izlazak sa uslovima tog dana.',
+              'Otvori prognozu za lokaciju i pritisni „Zabeleži u dnevnik" da sačuvaš izlazak sa uslovima tog dana.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+              style: context.ui(size: 13, weight: FontWeight.w500, color: c.muted, height: 1.5),
             ),
           ],
         ),
@@ -140,79 +138,77 @@ class _EntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final c = context.c;
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.calendar_today, size: 15, color: Color(0xFF0277BD)),
-                  const SizedBox(width: 6),
-                  Text(fmtDate(entry.date), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: onDelete,
-                    child: Icon(Icons.delete_outline, size: 19, color: Colors.grey.shade400),
-                  ),
-                ],
+              Icon(Icons.calendar_today, size: 15, color: c.water),
+              const SizedBox(width: 6),
+              Text(fmtDate(entry.date), style: context.display(size: 15, weight: FontWeight.w700)),
+              const Spacer(),
+              GestureDetector(
+                onTap: onDelete,
+                child: Icon(Icons.delete_outline, size: 19, color: c.faint),
               ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.place, size: 13, color: Colors.grey.shade500),
-                  const SizedBox(width: 3),
-                  Expanded(
-                    child: Text(
-                      entry.water != null ? '${entry.water} · ${entry.location}' : entry.location,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              if (entry.catches.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: entry.catches.map((c) {
-                    final icon = fishIconAsset(c.species);
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(10)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (icon != null) SizedBox(width: 18, height: 18, child: Image.asset(icon, fit: BoxFit.contain)) else const Text('🐟', style: TextStyle(fontSize: 13)),
-                          const SizedBox(width: 4),
-                          Text('${c.species} ×${c.count}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ] else ...[
-                const SizedBox(height: 8),
-                Text('Bez ulova', style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
-              ],
-              if (entry.notes != null && entry.notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(entry.notes!, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic), maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.place, size: 13, color: c.faint),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  entry.water != null ? '${entry.water} · ${entry.location}' : entry.location,
+                  style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (entry.catches.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: entry.catches.map((ct) {
+                final icon = fishIconAsset(ct.species);
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+                  decoration: BoxDecoration(color: c.surface3, borderRadius: BorderRadius.circular(999)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null)
+                        SizedBox(width: 22, height: 22, child: Image.asset(icon, fit: BoxFit.contain))
+                      else
+                        const Text('🐟', style: TextStyle(fontSize: 14)),
+                      const SizedBox(width: 5),
+                      Text('${ct.species} ×${ct.count}',
+                          style: context.ui(size: 11.5, weight: FontWeight.w700)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text('Bez ulova', style: context.ui(size: 12, weight: FontWeight.w500, color: c.faint)),
+          ],
+          if (entry.notes != null && entry.notes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('„${entry.notes!}"',
+                style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted, height: 1.4)
+                    .copyWith(fontStyle: FontStyle.italic),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis),
+          ],
+        ],
       ),
     );
   }

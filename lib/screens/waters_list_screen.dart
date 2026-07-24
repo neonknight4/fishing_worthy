@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../data/fishing_seasons.dart';
 import '../models/weather_data.dart';
 import '../services/water_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../widgets/components.dart';
 
 class WatersListScreen extends StatefulWidget {
   final double latitude;
@@ -59,27 +62,9 @@ class _WatersListScreenState extends State<WatersListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF01579B),
-        foregroundColor: Colors.white,
-        title: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Ribolovne vode', style: TextStyle(fontSize: 16)),
-            Text(
-              widget.locationName,
-              style: const TextStyle(fontSize: 12, color: Colors.white60),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ],
-        ),
-      ),
       body: Column(
         children: [
+          PageHeader(title: 'Vode', subtitle: widget.locationName, showBack: true),
           _buildRadiusFilter(),
           Expanded(
             child: _loading
@@ -94,16 +79,13 @@ class _WatersListScreenState extends State<WatersListScreen> {
   }
 
   Widget _buildRadiusFilter() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final c = context.c;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
       child: Row(
         children: [
-          const Text(
-            'Krug pretrage:',
-            style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(width: 12),
+          Text('Krug:', style: context.ui(size: 13, weight: FontWeight.w600, color: c.muted)),
+          const SizedBox(width: 10),
           ..._radii.map((r) {
             final selected = r == _selectedRadius;
             return Padding(
@@ -115,24 +97,15 @@ class _WatersListScreenState extends State<WatersListScreen> {
                         setState(() => _selectedRadius = r);
                         _fetch();
                       },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFF0277BD) : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: selected ? const Color(0xFF0277BD) : Colors.grey.shade300,
-                    ),
+                    color: selected ? c.green : c.surface3,
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    '$r km',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : Colors.grey.shade700,
-                    ),
-                  ),
+                  child: Text('$r km',
+                      style: context.ui(
+                          size: 13, weight: FontWeight.w700, color: selected ? c.onBrand : c.ink)),
                 ),
               ),
             );
@@ -143,34 +116,20 @@ class _WatersListScreenState extends State<WatersListScreen> {
   }
 
   Widget _buildError() {
+    final c = context.c;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('⚠️', style: TextStyle(fontSize: 40)),
+            Icon(Icons.error_outline, size: 48, color: c.coral),
             const SizedBox(height: 12),
-            const Text(
-              'Greška pri učitavanju',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Color(0xFF1A237E)),
-            ),
+            Text('Greška pri učitavanju', style: context.display(size: 17)),
             const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            Text(_error!, textAlign: TextAlign.center, style: context.ui(size: 12, color: c.muted)),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _fetch,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Pokušaj ponovo'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0277BD),
-                foregroundColor: Colors.white,
-              ),
-            ),
+            AppButton('Pokušaj ponovo', icon: Icons.refresh, onTap: _fetch),
           ],
         ),
       ),
@@ -184,34 +143,31 @@ class _WatersListScreenState extends State<WatersListScreen> {
         children: [
           const CircularProgressIndicator(),
           const SizedBox(height: 12),
-          Text(
-            'Tražim vode u krugu od $_selectedRadius km...',
-            style: const TextStyle(color: Colors.grey, fontSize: 13),
-          ),
+          Text('Tražim vode u krugu od $_selectedRadius km…',
+              style: context.ui(size: 13, color: context.c.muted)),
         ],
       ),
     );
   }
 
   Widget _buildList() {
+    final c = context.c;
     if (_bodies.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('🌊', style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
-            Text(
-              'Nema pronađenih voda u krugu od $_selectedRadius km',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Pokušaj sa većim opsegom pretrage',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.water, size: 52, color: c.faint),
+              const SizedBox(height: 12),
+              Text('Nema voda u krugu od $_selectedRadius km',
+                  textAlign: TextAlign.center, style: context.display(size: 17)),
+              const SizedBox(height: 6),
+              Text('Pokušaj sa većim opsegom pretrage',
+                  style: context.ui(size: 13, weight: FontWeight.w500, color: c.muted)),
+            ],
+          ),
         ),
       );
     }
@@ -220,173 +176,45 @@ class _WatersListScreenState extends State<WatersListScreen> {
     final lakes = _bodies.where((b) => b.type != 'river').toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
       children: [
-        Text(
-          '${_bodies.length} pronađenih voda u krugu od $_selectedRadius km',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        const SizedBox(height: 12),
+        Text('${_bodies.length} voda u krugu od $_selectedRadius km',
+            style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
         if (rivers.isNotEmpty) ...[
-          _sectionLabel('REKE I KANALI', '🏞', rivers.length),
-          const SizedBox(height: 8),
-          ...rivers.map((b) => _WaterBodyTile(body: b)),
-          const SizedBox(height: 16),
+          const SectionLabel('Reke i kanali'),
+          ...rivers.map((b) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _WaterBodyRow(body: b),
+              )),
         ],
         if (lakes.isNotEmpty) ...[
-          _sectionLabel('JEZERA I BARE', '🏖', lakes.length),
-          const SizedBox(height: 8),
-          ...lakes.map((b) => _WaterBodyTile(body: b)),
+          const SectionLabel('Jezera i bare'),
+          ...lakes.map((b) => Padding(
+                padding: const EdgeInsets.only(bottom: 9),
+                child: _WaterBodyRow(body: b),
+              )),
         ],
-      ],
-    );
-  }
-
-  Widget _sectionLabel(String label, String icon, int count) {
-    return Row(
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 14)),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.4,
-            color: Color(0xFF546E7A),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade200,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '$count',
-            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w700),
-          ),
-        ),
       ],
     );
   }
 }
 
-class _WaterBodyTile extends StatelessWidget {
+class _WaterBodyRow extends StatelessWidget {
   final WaterBody body;
-  const _WaterBodyTile({required this.body});
+  const _WaterBodyRow({required this.body});
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final isRiver = body.type == 'river';
-    final baseColor = isRiver ? const Color(0xFF0277BD) : const Color(0xFF2E7D32);
-    final bgColor = isRiver ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9);
     final protected = matchProtectedArea(body.name, null);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.pop(context, body),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  isRiver ? '🏞' : '🏖',
-                  style: const TextStyle(fontSize: 20),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            body.name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A237E),
-                            ),
-                          ),
-                        ),
-                        if (protected != null)
-                          Container(
-                            margin: const EdgeInsets.only(left: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEDE7F6),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.3)),
-                            ),
-                            child: const Text(
-                              '🔒 posebna dozvola',
-                              style: TextStyle(fontSize: 9, color: Color(0xFF6A1B9A), fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: bgColor,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isRiver ? 'Reka' : 'Jezero / bara',
-                            style: TextStyle(fontSize: 10, color: baseColor, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(Icons.place, size: 12, color: Colors.grey.shade400),
-                        Text(
-                          '${body.distanceKm.toStringAsFixed(1)} km',
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                        ),
-                        if (protected != null) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            '~${protected.permitPrice} din/god.',
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF6A1B9A)),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey.shade300, size: 20),
-            ],
-          ),
-        ),
-      ),
+    return ListRowCard(
+      onTap: () => Navigator.pop(context, body),
+      leading: Icon(isRiver ? Icons.waves : Icons.water, color: c.water, size: 22),
+      title: body.name,
+      subtitle:
+          '${isRiver ? 'Reka' : 'Jezero / bara'} · ${body.distanceKm.toStringAsFixed(1)} km${protected != null ? '  🔒 posebna dozvola' : ''}',
+      trailing: Icon(Icons.chevron_right, color: c.faint, size: 20),
     );
   }
 }

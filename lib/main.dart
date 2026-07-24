@@ -17,7 +17,7 @@ class FishingWorthyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FishingWorthy',
+      title: 'Upecaj!',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

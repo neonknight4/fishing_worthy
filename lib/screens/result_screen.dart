@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/fishing_seasons.dart';
 import '../logic/bait_advisor.dart';
 import '../logic/bait_recommender.dart';
 import '../logic/technique_advisor.dart';
+import '../data/traper_combos.dart';
 import '../models/bait_product.dart';
+import '../models/water_combo.dart';
 import '../models/feeder_plan.dart';
 import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
@@ -37,6 +40,14 @@ String? _activeSpeciesTag(List<SeasonalFish> fish) {
     if (tag != null) return tag;
   }
   return null;
+}
+
+/// Grubo preslikavanje dnevnog skora (0–100) na procenu aktivnosti ribe —
+/// modifikator količine/finoće hranjenja u kuriranom combo-u.
+FishActivity _activityFromScore(int score) {
+  if (score >= 65) return FishActivity.visoka;
+  if (score >= 40) return FishActivity.umerena;
+  return FishActivity.niska;
 }
 
 class ResultScreen extends StatefulWidget {
@@ -151,6 +162,10 @@ class _ResultScreenState extends State<ResultScreen> {
       targetSpecies: _activeSpeciesTag(seasonal),
       discharge: waterLevel?.currentDischarge,
     );
+    // Hibrid: ekspertski kurirani recept ako voda ima combo za tekuću sezonu;
+    // inače (775 nepokrivenih voda) fallback na algoritamski baitCombo.
+    final curatedCombo = comboFor(selectedWaterBody?.name, seasonForMonth(now.month));
+    final fishActivity = _activityFromScore(score.score);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F7FF),
@@ -353,7 +368,12 @@ class _ResultScreenState extends State<ResultScreen> {
                   plan: feederPlan,
                   realTemp: _waterTemp != null,
                 ),
-                if (baitCombo != null) ...[
+                if (curatedCombo != null) ...[
+                  const SizedBox(height: 24),
+                  const _Label('KURIRANA TRAPER KOMBINACIJA'),
+                  const SizedBox(height: 10),
+                  _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
+                ] else if (baitCombo != null) ...[
                   const SizedBox(height: 24),
                   const _Label('PREPORUČENE TRAPER PRIMAME'),
                   const SizedBox(height: 10),
@@ -735,6 +755,198 @@ class _TraperComboCard extends StatelessWidget {
   }
 }
 
+/// Kurirani, ekspertski Traper recept za konkretnu vodu + sezonu.
+/// Reuse `_ProductRow`/`_MiniLabel`; dodaje collapsible "Kako pripremiti"
+/// (priprema + hranjenje + modifikator po aktivnosti ribe).
+class _CuratedComboCard extends StatefulWidget {
+  final WaterCombo combo;
+  final FishActivity activity;
+  const _CuratedComboCard({required this.combo, required this.activity});
+
+  @override
+  State<_CuratedComboCard> createState() => _CuratedComboCardState();
+}
+
+class _CuratedComboCardState extends State<_CuratedComboCard> {
+  static const _traperGreen = Color(0xFF1D5A33);
+  bool _prepOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final combo = widget.combo;
+    final extras = <Widget>[
+      if (combo.pellet != null) _ProductRow(product: combo.pellet!),
+      for (final a in combo.additives) _ProductRow(product: a),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand header + sezona
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: const BoxDecoration(
+              color: _traperGreen,
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
+            ),
+            child: Row(
+              children: [
+                const Text('TRAPER',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('ekspertski recept za ovu vodu',
+                      style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(seasonLabel(combo.season).toUpperCase(),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.8)),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (combo.species.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: combo.species
+                        .map((s) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+                              child: Text(s,
+                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF2E7D32))),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (combo.second != null) ...[
+                  Row(
+                    children: [
+                      const _MiniLabel('MIKS PRIMAME'),
+                      const Spacer(),
+                      if (combo.mixRatio != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(color: _traperGreen, borderRadius: BorderRadius.circular(8)),
+                          child: Text('ODNOS  ${combo.mixRatio}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _ProductRow(product: combo.base, roleBadge: 'BAZA'),
+                  const SizedBox(height: 10),
+                  _ProductRow(product: combo.second!, roleBadge: 'DODATAK'),
+                ] else
+                  _ProductRow(product: combo.base, roleBadge: 'BAZA'),
+                if (extras.isNotEmpty) ...[
+                  const Divider(height: 22),
+                  const Align(alignment: Alignment.centerLeft, child: _MiniLabel('UZ SMEŠU')),
+                  const SizedBox(height: 8),
+                  for (final w in extras) ...[w, const SizedBox(height: 10)],
+                ],
+                if (combo.hookbait != null) ...[
+                  const Divider(height: 22),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('🪝 ', style: TextStyle(fontSize: 13)),
+                      const _MiniLabel('MAMAC'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(combo.hookbait!,
+                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800, height: 1.35)),
+                      ),
+                    ],
+                  ),
+                ],
+                const Divider(height: 22),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('🐟 ', style: TextStyle(fontSize: 13)),
+                    Expanded(
+                      child: Text(activityMod(widget.activity),
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () => setState(() => _prepOpen = !_prepOpen),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F8F3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _traperGreen.withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('🥣 ', style: TextStyle(fontSize: 14)),
+                        const Expanded(
+                          child: Text('Kako pripremiti i hraniti',
+                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: _traperGreen)),
+                        ),
+                        Icon(_prepOpen ? Icons.expand_less : Icons.expand_more, color: _traperGreen, size: 20),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_prepOpen) ...[
+                  const SizedBox(height: 10),
+                  _PrepBlock(label: 'PRIPREMA SMEŠE', text: combo.prep),
+                  const SizedBox(height: 10),
+                  _PrepBlock(label: 'HRANJENJE', text: combo.loading),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Jedan blok teksta unutar "Kako pripremiti" sekcije.
+class _PrepBlock extends StatelessWidget {
+  final String label;
+  final String text;
+  const _PrepBlock({required this.label, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _MiniLabel(label),
+        const SizedBox(height: 4),
+        Text(text, style: TextStyle(fontSize: 12, color: Colors.grey.shade800, height: 1.4)),
+      ],
+    );
+  }
+}
+
 class _MiniLabel extends StatelessWidget {
   final String text;
   const _MiniLabel(this.text);
@@ -763,63 +975,94 @@ class _ProductRow extends StatelessWidget {
     }
   }
 
+  /// Otvara m-fishing stranicu proizvoda u eksternom browseru.
+  Future<void> _openProduct() async {
+    final url = product.productUrl;
+    if (url == null) return;
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.asset(product.imageAsset, width: 64, height: 64, fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox(
-                  width: 64, height: 64, child: Icon(Icons.image_not_supported, size: 28))),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F5E9),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(_categoryLabel,
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
-                  ),
-                  if (roleBadge != null) ...[
-                    const SizedBox(width: 6),
+    final hasShop = product.productUrl != null;
+    return InkWell(
+      onTap: hasShop ? _openProduct : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.asset(product.imageAsset, width: 64, height: 64, fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox(
+                    width: 64, height: 64, child: Icon(Icons.image_not_supported, size: 28))),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1D5A33),
+                        color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(roleBadge!,
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+                      child: Text(_categoryLabel,
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
                     ),
+                    if (roleBadge != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1D5A33),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(roleBadge!,
+                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ],
+                    if (product.flagship) ...[
+                      const SizedBox(width: 6),
+                      const Text('⭐', style: TextStyle(fontSize: 11)),
+                    ],
                   ],
-                  if (product.flagship) ...[
-                    const SizedBox(width: 6),
-                    const Text('⭐', style: TextStyle(fontSize: 11)),
-                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(product.name,
+                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
+                Text('${product.line} · ${product.flavorColor}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                const SizedBox(height: 2),
+                Text(product.shortDesc,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3)),
+                if (hasShop) ...[
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.storefront, size: 13, color: Color(0xFF1D5A33)),
+                      const SizedBox(width: 4),
+                      Text('Kupi na m-fishing.rs',
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF1D5A33),
+                              decoration: TextDecoration.underline,
+                              decorationColor: const Color(0xFF1D5A33).withValues(alpha: 0.4))),
+                      const SizedBox(width: 3),
+                      const Icon(Icons.open_in_new, size: 12, color: Color(0xFF1D5A33)),
+                    ],
+                  ),
                 ],
-              ),
-              const SizedBox(height: 3),
-              Text(product.name,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
-              Text('${product.line} · ${product.flavorColor}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-              const SizedBox(height: 2),
-              Text(product.shortDesc,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3)),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

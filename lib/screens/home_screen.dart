@@ -290,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const Text('🎣', style: TextStyle(fontSize: 26)),
                   const SizedBox(width: 10),
                   const Text(
-                    'FishingWorthy',
+                    'Upecaj!',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 22,

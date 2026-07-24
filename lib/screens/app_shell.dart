@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../widgets/nav_icons.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
+import 'method_screen.dart';
+import 'traper_screen.dart';
 import 'diary_list_screen.dart';
-import 'regulations_screen.dart';
 
-/// Root okvir sa donjom navigacijom: Početna · Mapa · Dnevnik · Propisi.
-/// Detaljni ekrani (Rezultat, Lista voda, Unos) se i dalje `push`-uju preko.
+/// Root okvir sa donjom navigacijom: Početna · Mapa · Method · Traper · Dnevnik.
+/// Propisi + detaljni ekrani (Rezultat, Lista voda, Unos) se `push`-uju preko.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -21,12 +24,7 @@ class _AppShellState extends State<AppShell> {
   // Podrazumevani centar (Beograd) za Mapu kad korisnik nije birao lokaciju.
   static const _defLat = 44.7866, _defLon = 20.4489;
 
-  static const _nav = [
-    (Icons.home_outlined, Icons.home, 'Početna'),
-    (Icons.map_outlined, Icons.map, 'Mapa'),
-    (Icons.menu_book_outlined, Icons.menu_book, 'Dnevnik'),
-    (Icons.gavel_outlined, Icons.gavel, 'Propisi'),
-  ];
+  static const _labels = ['Početna', 'Mapa', 'Method', 'Traper', 'Dnevnik'];
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +35,9 @@ class _AppShellState extends State<AppShell> {
         children: const [
           HomeScreen(),
           MapScreen(latitude: _defLat, longitude: _defLon, locationName: 'Srbija', showBack: false),
+          MethodScreen(),
+          TraperScreen(),
           DiaryListScreen(showBack: false),
-          RegulationsScreen(showBack: false),
         ],
       ),
       bottomNavigationBar: Container(
@@ -51,9 +50,10 @@ class _AppShellState extends State<AppShell> {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
-              children: List.generate(_nav.length, (i) {
+              children: List.generate(_labels.length, (i) {
                 final on = i == _index;
-                final item = _nav[i];
+                final tint = on ? c.green : c.faint;
+                final ico = navIcons[i];
                 return Expanded(
                   child: InkWell(
                     onTap: () => setState(() => _index = i),
@@ -63,11 +63,15 @@ class _AppShellState extends State<AppShell> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(on ? item.$2 : item.$1, size: 23, color: on ? c.green : c.faint),
+                          SvgPicture.string(
+                            on ? ico.filled : ico.outline,
+                            width: 23,
+                            height: 23,
+                            colorFilter: ColorFilter.mode(tint, BlendMode.srcIn),
+                          ),
                           const SizedBox(height: 3),
-                          Text(item.$3,
-                              style: context.ui(
-                                  size: 10.5, weight: FontWeight.w700, color: on ? c.green : c.faint)),
+                          Text(_labels[i],
+                              style: context.ui(size: 10.5, weight: FontWeight.w700, color: tint)),
                         ],
                       ),
                     ),

@@ -6,6 +6,47 @@ import '../theme/app_theme.dart';
 /// Deljene UI komponente redizajna ("moderan outdoor dashboard").
 /// Sve boje/senke idu iz [AppColors] (context.c), tipografija iz context.display/ui.
 
+// ─────────────────────────── PAGE HEADER ───────────────────────────
+/// Vrh ekrana (CSS `.topbar`): naslov (Baloo) + podnaslov + opcioni back/akcije.
+class PageHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool showBack;
+  final List<Widget> actions;
+  const PageHeader(
+      {super.key, required this.title, this.subtitle, this.showBack = false, this.actions = const []});
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        child: Row(
+          children: [
+            if (showBack) ...[
+              AppIconButton(Icons.arrow_back, onTap: () => Navigator.of(context).maybePop()),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: context.display(size: 22)),
+                  if (subtitle != null)
+                    Text(subtitle!,
+                        style: context.ui(size: 12.5, weight: FontWeight.w600, color: c.muted)),
+                ],
+              ),
+            ),
+            ...actions,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────── CARD ───────────────────────────
 class AppCard extends StatelessWidget {
   final Widget child;

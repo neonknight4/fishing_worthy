@@ -13,12 +13,14 @@ const _fishIconMap = {
   'mrena': 'assets/icons/mrena.png',
   'skobalj': 'assets/icons/skobalj.png',
   'šljivar': 'assets/icons/sljivar.png',
+  'tolstolobik': 'assets/icons/tolstolobik.png',
 };
 
 // Display names of all species we have icons for — used in pickers.
 const iconFishNames = [
   'Som', 'Smuđ', 'Šaran', 'Štuka', 'Deverika', 'Babuška', 'Amur',
   'Bodorka', 'Bucov', 'Plotica', 'Klen', 'Mrena', 'Skobalj', 'Šljivar',
+  'Tolstolobik',
 ];
 
 String? fishIconAsset(String name) {

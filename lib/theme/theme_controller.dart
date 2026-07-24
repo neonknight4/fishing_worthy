@@ -4,18 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Drži izabranu temu (system/light/dark) i pamti je u shared_preferences.
 class ThemeController extends ChangeNotifier {
   static const _key = 'theme_mode';
-  ThemeMode _mode = ThemeMode.system;
+  ThemeMode _mode = ThemeMode.light; // light je default dok korisnik ne izabere
   ThemeMode get mode => _mode;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     switch (prefs.getString(_key)) {
-      case 'light':
-        _mode = ThemeMode.light;
       case 'dark':
         _mode = ThemeMode.dark;
-      default:
+      case 'system':
         _mode = ThemeMode.system;
+      default:
+        _mode = ThemeMode.light;
     }
     notifyListeners();
   }

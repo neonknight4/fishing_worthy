@@ -289,8 +289,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 7),
-                Image.asset('assets/brand/fish-teal.png', width: 24, height: 20, fit: BoxFit.contain),
                 const Spacer(),
                 AppIconButton(
                   themeController.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,

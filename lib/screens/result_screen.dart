@@ -490,42 +490,37 @@ class _LevelForecastTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final up = forecast.trend == 'raste';
     final down = forecast.trend == 'pada';
-    final color = up
-        ? const Color(0xFF0277BD)
-        : (down ? const Color(0xFFE65100) : const Color(0xFF2E7D32));
-    final icon = up ? '↗' : (down ? '↘' : '→');
+    final color = up ? c.good : (down ? c.gold : c.muted);
+    final icon = up ? Icons.trending_up : (down ? Icons.trending_down : Icons.trending_flat);
     final sign = forecast.deltaCm >= 0 ? '+' : '';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
       ),
       child: Row(
         children: [
-          Text(icon, style: TextStyle(fontSize: 22, color: color)),
+          Icon(icon, size: 24, color: color),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${forecast.river} · ${forecast.station}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF1A237E)),
-                ),
+                Text('${forecast.river} · ${forecast.station}',
+                    style: context.ui(size: 13, weight: FontWeight.w700)),
                 const SizedBox(height: 2),
                 Text(
                   '${forecast.todayCm} → ${forecast.forecastCm} cm  ($sign${forecast.deltaCm} cm, ${forecast.trend})',
-                  style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600),
+                  style: context.ui(size: 12, weight: FontWeight.w700, color: color),
                 ),
-                Text(
-                  'stanica ${forecast.distanceKm.toStringAsFixed(0)} km · narednih 3–4 dana',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                ),
+                Text('stanica ${forecast.distanceKm.toStringAsFixed(0)} km · narednih 3–4 dana',
+                    style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint)),
               ],
             ),
           ),
@@ -569,8 +564,8 @@ class _FeederPlanCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Mamac na udici',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF546E7A))),
+                    Text('Mamac na udici',
+                        style: context.ui(size: 11, weight: FontWeight.w700, color: context.c.muted)),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
@@ -579,11 +574,11 @@ class _FeederPlanCard extends StatelessWidget {
                           .map((b) => Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE8F5E9),
+                                  color: context.c.green.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(b,
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF2E7D32))),
+                                    style: context.ui(size: 12, weight: FontWeight.w600, color: context.c.green)),
                               ))
                           .toList(),
                     ),
@@ -593,25 +588,25 @@ class _FeederPlanCard extends StatelessWidget {
             ],
           ),
           const Divider(height: 22),
-          _row('🧺', 'Primama', plan.groundbait),
+          _row(context, '🧺', 'Primama', plan.groundbait),
           const SizedBox(height: 10),
-          _row('⚖️', 'Količina hrane', plan.feedAmount),
+          _row(context, '⚖️', 'Količina hrane', plan.feedAmount),
           const Divider(height: 22),
           Row(
             children: [
-              Expanded(child: _miniStat('Hranilica', plan.feederType)),
-              Expanded(child: _miniStat('Težina', plan.feederWeight)),
+              Expanded(child: _miniStat(context, 'Hranilica', plan.feederType)),
+              Expanded(child: _miniStat(context, 'Težina', plan.feederWeight)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _miniStat('Podvez', plan.hooklength)),
-              Expanded(child: _miniStat('Udica', plan.hookSize)),
+              Expanded(child: _miniStat(context, 'Podvez', plan.hooklength)),
+              Expanded(child: _miniStat(context, 'Udica', plan.hookSize)),
             ],
           ),
           const SizedBox(height: 12),
-          _miniStat('Kadenca zabacivanja', plan.cadence),
+          _miniStat(context, 'Kadenca zabacivanja', plan.cadence),
           if (plan.notes.isNotEmpty) ...[
             const SizedBox(height: 14),
             ...plan.notes.map((n) => Padding(
@@ -633,14 +628,16 @@ class _FeederPlanCard extends StatelessWidget {
             realTemp
                 ? 'Plan prema pravoj temp. vode (RHMZ), bistrini i vodostaju.'
                 : 'Plan prema proceni temp. vode, bistrini i vodostaju.',
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade400, fontStyle: FontStyle.italic),
+            style: context.ui(size: 10, weight: FontWeight.w500, color: context.c.faint)
+                .copyWith(fontStyle: FontStyle.italic),
           ),
         ],
       ),
     );
   }
 
-  Widget _row(String icon, String label, String value) {
+  Widget _row(BuildContext context, String icon, String label, String value) {
+    final c = context.c;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -650,9 +647,9 @@ class _FeederPlanCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF546E7A))),
+              Text(label, style: context.ui(size: 11, weight: FontWeight.w700, color: c.muted)),
               const SizedBox(height: 3),
-              Text(value, style: const TextStyle(fontSize: 13, color: Color(0xFF1A237E), height: 1.3)),
+              Text(value, style: context.ui(size: 13, weight: FontWeight.w600, color: c.ink, height: 1.3)),
             ],
           ),
         ),
@@ -660,13 +657,14 @@ class _FeederPlanCard extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(String label, String value) {
+  Widget _miniStat(BuildContext context, String label, String value) {
+    final c = context.c;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF90A4AE))),
+        Text(label, style: context.ui(size: 10, weight: FontWeight.w700, color: c.muted)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1A237E))),
+        Text(value, style: context.ui(size: 13, weight: FontWeight.w600, color: c.ink)),
       ],
     );
   }
@@ -1096,28 +1094,24 @@ class _ClosedSeasonsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFB300).withValues(alpha: 0.5)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: c.coral, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text('🚫', style: TextStyle(fontSize: 16)),
-              SizedBox(width: 8),
-              Text(
-                'Lovostaj — zaštitni period',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFFE65100),
-                ),
-              ),
+              Icon(Icons.block, size: 16, color: c.coral),
+              const SizedBox(width: 8),
+              Text('Lovostaj — zaštitni period',
+                  style: context.ui(size: 13, weight: FontWeight.w700, color: c.coral)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1134,45 +1128,27 @@ class _ClosedSeasonsCard extends StatelessWidget {
                     const SizedBox(width: 28),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      s.species,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF5D4037),
-                      ),
-                    ),
+                    child: Text(s.species, style: context.ui(size: 12, weight: FontWeight.w600, color: c.ink)),
                   ),
                   if (s.minSizeCm != null)
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0277BD).withValues(alpha: 0.1),
+                        color: c.green.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        'min ${s.minSizeCm} cm',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF0277BD),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: Text('min ${s.minSizeCm} cm',
+                          style: context.ui(size: 10, weight: FontWeight.w700, color: c.green)),
                     ),
-                  Text(
-                    s.dateRange,
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFBF360C)),
-                  ),
+                  Text(s.dateRange, style: context.ui(size: 11, weight: FontWeight.w600, color: c.coral)),
                 ],
               ),
             );
           }),
           const SizedBox(height: 4),
-          const Text(
-            'Lokalni propisi mogu se razlikovati od republičkih.',
-            style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-          ),
+          Text('Lokalni propisi mogu se razlikovati od republičkih.',
+              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -1185,45 +1161,38 @@ class _ProtectedAreaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEDE7F6),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF7B1FA2).withValues(alpha: 0.35)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: c.gold, width: 4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Text('🔒', style: TextStyle(fontSize: 16)),
-              SizedBox(width: 8),
-              Text(
-                'Zaštićeno područje — posebna dozvola',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF6A1B9A),
-                ),
+              Icon(Icons.lock, size: 16, color: c.gold),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Zaštićeno područje — posebna dozvola',
+                    style: context.ui(size: 13, weight: FontWeight.w700, color: c.gold)),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            area.name,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF4A148C)),
-          ),
+          Text(area.name, style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
           const SizedBox(height: 3),
           Text(
             'Godišnja dozvola: ~${area.permitPrice.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} din',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF6A1B9A)),
+            style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Opšta ribarska dozvola ne važi — proverite kod upravljača područja.',
-            style: TextStyle(fontSize: 10, color: Colors.grey, fontStyle: FontStyle.italic),
-          ),
+          Text('Opšta ribarska dozvola ne važi — proverite kod upravljača područja.',
+              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -1246,13 +1215,14 @@ class _MoonSolunarCard extends StatelessWidget {
         : '${pct.round()}% osvetljenosti (opada)';
 
     final sorted = [...windows]..sort((a, b) => a.start.compareTo(b.start));
+    final c = context.c;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A237E).withValues(alpha: 0.05),
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1A237E).withValues(alpha: 0.15)),
+        boxShadow: c.shadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1265,30 +1235,13 @@ class _MoonSolunarCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A237E),
-                      ),
-                    ),
-                    Text(
-                      illumination,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
+                    Text(name, style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
+                    Text(illumination, style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
                   ],
                 ),
               ),
-              const Text(
-                'SOLUNAR',
-                style: TextStyle(
-                  fontSize: 9,
-                  letterSpacing: 1.2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text('SOLUNAR',
+                  style: context.ui(size: 9, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.2)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1298,40 +1251,24 @@ class _MoonSolunarCard extends StatelessWidget {
             children: sorted.map((w) {
               final s = '${w.start.hour.toString().padLeft(2, '0')}:${w.start.minute.toString().padLeft(2, '0')}';
               final e = '${w.end.hour.toString().padLeft(2, '0')}:${w.end.minute.toString().padLeft(2, '0')}';
-              final color = w.isMajor ? const Color(0xFF1A237E) : const Color(0xFF455A64);
-              final bg = w.isMajor
-                  ? const Color(0xFF1A237E).withValues(alpha: 0.10)
-                  : Colors.grey.withValues(alpha: 0.08);
+              final color = w.isMajor ? c.gold : c.muted;
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: bg,
+                  color: w.isMajor ? c.gold.withValues(alpha: 0.16) : c.surface3,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(w.isMajor ? '🌙' : '🌛', style: const TextStyle(fontSize: 11)),
                     const SizedBox(width: 4),
-                    Text(
-                      '$s–$e',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: w.isMajor ? FontWeight.w700 : FontWeight.normal,
-                        color: color,
-                      ),
-                    ),
+                    Text('$s–$e',
+                        style: context.ui(
+                            size: 11, weight: w.isMajor ? FontWeight.w700 : FontWeight.w500, color: color)),
                     const SizedBox(width: 3),
-                    Text(
-                      w.isMajor ? 'MAJOR' : 'minor',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: color,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
+                    Text(w.isMajor ? 'MAJOR' : 'minor',
+                        style: context.ui(size: 9, weight: FontWeight.w600, color: color, letterSpacing: 0.4)),
                   ],
                 ),
               );
@@ -1349,42 +1286,31 @@ class _WaterLevelTile extends StatelessWidget {
 
   const _WaterLevelTile({required this.waterLevel, this.waterBodyName});
 
-  Color get _trendColor {
+  Color _trendColor(AppColors c) {
     switch (waterLevel.trend) {
       case WaterLevelTrend.slightRise:
-        return const Color(0xFF2E7D32);
+        return c.good;
       case WaterLevelTrend.stable:
-        return const Color(0xFF0277BD);
+        return c.muted;
       case WaterLevelTrend.slightFall:
-        return const Color(0xFFE65100);
+        return c.gold;
       case WaterLevelTrend.largeRise:
       case WaterLevelTrend.largeFall:
-        return const Color(0xFFC62828);
-    }
-  }
-
-  Color get _bgColor {
-    switch (waterLevel.trend) {
-      case WaterLevelTrend.slightRise:
-        return const Color(0xFFE8F5E9);
-      case WaterLevelTrend.stable:
-        return const Color(0xFFE3F2FD);
-      case WaterLevelTrend.slightFall:
-        return const Color(0xFFFFF3E0);
-      case WaterLevelTrend.largeRise:
-      case WaterLevelTrend.largeFall:
-        return const Color(0xFFFFEBEE);
+        return c.coral;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
+    final tc = _trendColor(c);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _bgColor,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _trendColor.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: tc, width: 4)),
       ),
       child: Row(
         children: [
@@ -1394,26 +1320,10 @@ class _WaterLevelTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  waterLevel.trendLabel,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _trendColor,
-                  ),
-                ),
-                Text(
-                  waterBodyName ?? 'Obližnja voda',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _trendColor,
-                  ),
-                ),
-                Text(
-                  'Protok: ${waterLevel.currentDischarge.toStringAsFixed(1)} m³/s',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
+                Text(waterLevel.trendLabel, style: context.ui(size: 14, weight: FontWeight.w700, color: tc)),
+                Text(waterBodyName ?? 'Obližnja voda', style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
+                Text('Protok: ${waterLevel.currentDischarge.toStringAsFixed(1)} m³/s',
+                    style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted)),
               ],
             ),
           ),
@@ -1436,6 +1346,7 @@ class _TechniqueFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Row(
       children: _opts.map((o) {
         final sel = o.$1 == selected;
@@ -1446,25 +1357,20 @@ class _TechniqueFilter extends StatelessWidget {
               onTap: () => onChanged(o.$1),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 9),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: sel ? const Color(0xFF0277BD) : Colors.white,
+                  color: sel ? c.green : c.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: sel ? const Color(0xFF0277BD) : Colors.grey.shade300),
+                  border: Border.all(color: sel ? c.green : c.line),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(o.$2, style: const TextStyle(fontSize: 13)),
                     const SizedBox(width: 5),
-                    Text(
-                      o.$3,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: sel ? Colors.white : const Color(0xFF546E7A),
-                      ),
-                    ),
+                    Text(o.$3,
+                        style: context.ui(
+                            size: 12.5, weight: FontWeight.w700, color: sel ? c.onBrand : c.muted)),
                   ],
                 ),
               ),
@@ -1529,14 +1435,6 @@ class _ThreeHourSlots extends StatelessWidget {
     return (base + _crepBonus(hours.first.time)).clamp(0, 100);
   }
 
-  Color _scoreColor(int score) {
-    if (score >= 80) return const Color(0xFF1B5E20);
-    if (score >= 60) return const Color(0xFF2E7D32);
-    if (score >= 40) return const Color(0xFFE65100);
-    if (score >= 20) return const Color(0xFFBF360C);
-    return const Color(0xFFB71C1C);
-  }
-
   SolunarWindow? _solunarForSlot(DateTime start) {
     final end = start.add(const Duration(hours: 3));
     for (final w in solunarWindows) {
@@ -1547,6 +1445,7 @@ class _ThreeHourSlots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final isSummer = forecast.date.month >= 6 && forecast.date.month <= 8;
     final slots = forecast.getThreeHourSlots();
     final scores = slots.map((h) => h.isEmpty ? 0 : _slotScore(h)).toList();
@@ -1568,24 +1467,16 @@ class _ThreeHourSlots extends StatelessWidget {
         final temp = hours.map((h) => h.temperature).reduce((a, b) => a + b) / hours.length;
         final wind = hours.map((h) => h.windSpeed).reduce((a, b) => a + b) / hours.length;
         final solunar = _solunarForSlot(start);
-        final scoreColor = _scoreColor(slotScoreVal);
+        final scoreColor = c.score(slotScoreVal);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: isGolden ? const Color(0xFFFFFDE7) : Colors.white,
+            color: isGolden ? Color.alphaBlend(c.gold.withValues(alpha: 0.14), c.surface) : c.surface,
             borderRadius: BorderRadius.circular(12),
-            border: isGolden ? Border.all(color: const Color(0xFFFFB300), width: 1.5) : null,
-            boxShadow: [
-              BoxShadow(
-                color: isGolden
-                    ? const Color(0xFFFFB300).withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.05),
-                blurRadius: isGolden ? 10 : 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: isGolden ? Border.all(color: c.gold, width: 1.5) : null,
+            boxShadow: c.shadow,
           ),
           child: Row(
             children: [
@@ -1596,21 +1487,11 @@ class _ThreeHourSlots extends StatelessWidget {
                     if (isGolden) const Text('⭐', style: TextStyle(fontSize: 10)),
                     if (isGolden) const SizedBox(width: 2),
                     if (solunar != null) ...[
-                      Text(
-                        solunar.isMajor ? '🌙' : '🌛',
-                        style: const TextStyle(fontSize: 10),
-                      ),
+                      Text(solunar.isMajor ? '🌙' : '🌛', style: const TextStyle(fontSize: 10)),
                       const SizedBox(width: 2),
                     ],
                     Expanded(
-                      child: Text(
-                        timeLabel,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF37474F),
-                        ),
-                      ),
+                      child: Text(timeLabel, style: context.ui(size: 12, weight: FontWeight.w700, color: c.ink)),
                     ),
                   ],
                 ),
@@ -1619,41 +1500,20 @@ class _ThreeHourSlots extends StatelessWidget {
               Container(
                 width: 42,
                 height: 26,
-                decoration: BoxDecoration(
-                  color: scoreColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: scoreColor, borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
-                child: Text(
-                  '$slotScoreVal',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text('$slotScoreVal',
+                    style: context.ui(size: 13, weight: FontWeight.w800, color: Colors.white)),
               ),
               const SizedBox(width: 12),
-              const Icon(Icons.thermostat, size: 14, color: Color(0xFFE53935)),
-              Text(
-                '${temp.toStringAsFixed(0)}°',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF37474F)),
-              ),
+              Icon(Icons.thermostat, size: 14, color: c.coral),
+              Text('${temp.toStringAsFixed(0)}°', style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const SizedBox(width: 8),
-              const Icon(Icons.air, size: 14, color: Color(0xFF039BE5)),
-              Text(
-                wind.toStringAsFixed(0),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF37474F)),
-              ),
+              Icon(Icons.air, size: 14, color: c.water),
+              Text(wind.toStringAsFixed(0), style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const Spacer(),
               Text(
-                slotScoreVal >= 80
-                    ? '🎣'
-                    : slotScoreVal >= 60
-                        ? '👍'
-                        : slotScoreVal >= 40
-                            ? '😐'
-                            : '👎',
+                slotScoreVal >= 80 ? '🎣' : slotScoreVal >= 60 ? '👍' : slotScoreVal >= 40 ? '😐' : '👎',
                 style: const TextStyle(fontSize: 16),
               ),
             ],
@@ -1669,29 +1529,31 @@ class _TechniqueSection extends StatelessWidget {
   final String feederRig;
   const _TechniqueSection({required this.techniques, required this.feederRig});
 
-  Color _color(TechniqueType type) {
+  Color _color(TechniqueType type, AppColors c) {
     switch (type) {
       case TechniqueType.feeder:
-        return const Color(0xFF0277BD);
+        return c.water;
       case TechniqueType.spinning:
-        return const Color(0xFF6A1B9A);
+        return c.gold;
       case TechniqueType.float:
-        return const Color(0xFF00695C);
+        return c.green;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     return Column(
       children: techniques.map((t) {
-        final color = _color(t.type);
+        final color = _color(t.type, c);
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
+            color: c.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
+            boxShadow: c.shadow,
+            border: Border(left: BorderSide(color: color, width: 4)),
           ),
           child: Row(
             children: [
@@ -1701,25 +1563,13 @@ class _TechniqueSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      t.name,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: color,
-                      ),
-                    ),
+                    Text(t.name, style: context.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
                     const SizedBox(height: 2),
-                    Text(
-                      t.targetFish.join(' · '),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
+                    Text(t.targetFish.join(' · '),
+                        style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted)),
                     if (t.type == TechniqueType.feeder) ...[
                       const SizedBox(height: 3),
-                      Text(
-                        '🎣 $feederRig',
-                        style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.8)),
-                      ),
+                      Text('🎣 $feederRig', style: context.ui(size: 11, weight: FontWeight.w600, color: color)),
                     ],
                   ],
                 ),
@@ -1727,19 +1577,10 @@ class _TechniqueSection extends StatelessWidget {
               Container(
                 width: 46,
                 height: 28,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: c.score(t.score), borderRadius: BorderRadius.circular(8)),
                 alignment: Alignment.center,
-                child: Text(
-                  t.score.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: Text(t.score.toString(),
+                    style: context.ui(size: 13, weight: FontWeight.w800, color: Colors.white)),
               ),
             ],
           ),
@@ -1780,18 +1621,8 @@ class _SeasonalFishSection extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    f.name,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A237E),
-                    ),
-                  ),
-                  Text(
-                    f.technique,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
+                  Text(f.name, style: context.ui(size: 13, weight: FontWeight.w700, color: context.c.ink)),
+                  Text(f.technique, style: context.ui(size: 11, weight: FontWeight.w500, color: context.c.muted)),
                 ],
               ),
             ],
@@ -1838,62 +1669,45 @@ class _PressureTrendCard extends StatelessWidget {
     }
   }
 
-  Color get _color {
+  Color _accent(AppColors c) {
     switch (category) {
       case PressureTrendCategory.stable:
-        return const Color(0xFF2E7D32);
+        return c.good;
       case PressureTrendCategory.preFront:
-        return const Color(0xFFE65100);
+        return c.gold;
       case PressureTrendCategory.slowRise:
-        return const Color(0xFF0277BD);
+        return c.green;
       case PressureTrendCategory.rapidFall:
-        return const Color(0xFFC62828);
+        return c.coral;
       case PressureTrendCategory.rapidRise:
-        return const Color(0xFFE65100);
-    }
-  }
-
-  Color get _bgColor {
-    switch (category) {
-      case PressureTrendCategory.stable:
-        return const Color(0xFFE8F5E9);
-      case PressureTrendCategory.preFront:
-        return const Color(0xFFFFF3E0);
-      case PressureTrendCategory.slowRise:
-        return const Color(0xFFE3F2FD);
-      case PressureTrendCategory.rapidFall:
-        return const Color(0xFFFFEBEE);
-      case PressureTrendCategory.rapidRise:
-        return const Color(0xFFFFF3E0);
+        return c.gold;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
+    final accent = _accent(c);
     final sign = trendPer3h >= 0 ? '+' : '';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: _bgColor,
+        color: c.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _color.withValues(alpha: 0.3)),
+        boxShadow: c.shadow,
+        border: Border(left: BorderSide(color: accent, width: 4)),
       ),
       child: Row(
         children: [
-          Text(_icon, style: TextStyle(fontSize: 20, color: _color)),
+          Text(_icon, style: TextStyle(fontSize: 20, color: accent)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _label,
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _color),
-                ),
-                Text(
-                  'Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} mbar/3h',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
+                Text(_label, style: context.ui(size: 13, weight: FontWeight.w700, color: accent)),
+                Text('Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} mbar/3h',
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
               ],
             ),
           ),

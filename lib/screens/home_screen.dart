@@ -289,8 +289,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                Image.asset('assets/icons/saran.png', width: 34, height: 26, fit: BoxFit.contain),
+                const SizedBox(width: 7),
+                Image.asset('assets/brand/fish-teal.png', width: 24, height: 20, fit: BoxFit.contain),
                 const Spacer(),
                 AppIconButton(
                   themeController.isDark(context) ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
@@ -474,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Center(
             child: Column(
               children: [
-                Image.asset('assets/brand/fish-teal.png', width: 90, height: 70, fit: BoxFit.contain),
+                Image.asset('assets/brand/fish-teal.png', width: 58, height: 44, fit: BoxFit.contain),
                 const SizedBox(height: 14),
                 Text('Pronađi idealno mesto', style: context.display(size: 18)),
                 const SizedBox(height: 6),

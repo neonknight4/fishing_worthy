@@ -1,25 +1,32 @@
-# FishingWorthy 🎣
+# Upecaj! 🎣
 
 Flutter Android aplikacija za **prognozu uslova za ribolov u Srbiji**, sa fokusom na
 **feeder tehniku** (velike reke: Dunav, Sava, Tisa, Morava) i **method/flat feeder na jezerima**.
 Spaja vremensku prognozu, pravu temperaturu vode i vodostaj sa nacionalnih izvora, srpski
-ribolovni zakon (lovostaj, mere, zaštićena područja), pecaroški dnevnik i taktički savetnik.
+ribolovni zakon (lovostaj, mere, zaštićena područja), pecaroški dnevnik, taktički savetnik i
+**Traper preporuke primama** (kurirane kombinacije po vodi/sezoni, sa m-fishing.rs kupovinom).
 
-> Plan razvoja i prioriteti su u **`docs/UPGRADE_IDEAS.md`** (nije `plan.md`).
+> **Ime:** "Upecaj!" (display). Interni package/klasa ostaju `fishing_worthy` / `FishingWorthyApp`.
+> **Stanje i mapa puta:** `docs/PROJECT_STATUS.md`. Istraživanje: `docs/UPGRADE_IDEAS.md` + `_2.md`.
+> **Dizajn:** "moderan outdoor dashboard", light + dark (Baloo 2 + Manrope, brend tamno zelena).
 
 ---
 
 ## Tehnološki stek
 
-- **Flutter / Dart** (Android), Material 3
+- **Flutter / Dart** (Android), Material 3, custom tema (ThemeExtension, light+dark)
 - Bez backend-a — sve preko javnih API-ja + offline bundlovanih podataka
-- Lokalna baza: **sqflite** (dnevnik), **shared_preferences** (omiljene, nedavne pretrage)
+- Lokalna baza: **sqflite** (dnevnik), **shared_preferences** (omiljene, nedavne, tema)
 - Karta: **flutter_map** + OpenStreetMap pločice (`latlong2`)
 - Mreža: `http`, lokacija: `geolocator` + `permission_handler`
+- Tipografija: **google_fonts** (Baloo 2 + Manrope); linkovi: **url_launcher**
+- Ikone: **flutter_launcher_icons** (adaptive, cream ribica na zelenom)
 
 ```yaml
 dependencies: http, geolocator, permission_handler, intl,
-  shared_preferences, sqflite, path, flutter_map, latlong2
+  shared_preferences, sqflite, path, flutter_map, latlong2,
+  url_launcher, google_fonts
+dev_dependencies: flutter_launcher_icons
 ```
 
 ---
@@ -53,6 +60,14 @@ dependencies: http, geolocator, permission_handler, intl,
   (+ odnos primama:pelet), količina hrane, tip hranilice + težina, podvez (dužina·debljina),
   udica, kadenca zabacivanja, kontekstualne napomene. Jezero → method/flat grana (plafon 1.8 m).
 
+### Traper primame (m-fishing.rs)
+- **Katalog 44 proizvoda** (`traper_baits.dart`) + **80 kuriranih kombinacija** = 20 voda × 4 sezone
+  (`traper_combos.dart`, 10 reka + 10 jezera). Combo = baza + miks + odnos + pelet/aditivi + mamac +
+  priprema + hranjenje; aktivnost ribe je modifikator.
+- **Hibrid:** voda ima kuriran recept → prikaži ga; inače → algoritamski predlog (za ostalih ~775 voda).
+- **"Kupi na m-fishing.rs"** na svakom proizvodu; ako je stranica uklonjena (404/410) → fallback `/shop/`.
+- ⚠ Recepti su trenutno heuristika + 1 FB recept — **nisu zvanične Traper razmere** (vidi `PROJECT_STATUS.md`).
+
 ### Zakon
 - **Lovostaj i dozvoljene mere** — ekran sa svim vrstama (sa ikonicama), trenutno zabranjene
   gore (crveno), minimalne mere, disclaimer (propisi RS).
@@ -77,39 +92,48 @@ dependencies: http, geolocator, permission_handler, intl,
 
 ```
 lib/
-  main.dart
+  main.dart                   # MaterialApp (light/darkTheme, themeMode) → AppShell
+  theme/
+    app_colors.dart           # AppColors ThemeExtension (light+dark tokeni) + AppRadius + context.c
+    app_theme.dart            # ThemeData light/dark + Baloo2/Manrope (context.display/ui)
+    theme_controller.dart     # ThemeMode (light default), toggle, persist
   data/
     fishing_seasons.dart      # lovostaj, min. mere, zaštićena područja, FishReg (icon-fish)
+    traper_baits.dart         # 44 Traper proizvoda + baitById()
+    traper_combos.dart        # 80 kombinacija (20 voda × 4 sezone) + comboFor()/seasonForMonth()
   logic/
     technique_advisor.dart    # skoring feeder/plovak/varalica + scoreFor + sezonske ribe
     bait_advisor.dart         # FeederPlan iz uslova (mamac/primama/montaža/kadenca)
+    bait_recommender.dart     # algoritamski Traper predlog (fallback kad nema kuriranog combo-a)
   models/
-    weather_data.dart         # DailyForecast, HourlyWeather, turbiditet, proc. temp vode,
-                              #   pressureTrendCategory, WaterBody, WaterLevelForecast
+    weather_data.dart         # DailyForecast, HourlyWeather, WaterBody, WaterLevelForecast, LocationInfo
     fishing_score.dart        # FishingScore.calculate (+ windDirectionAdjustment, waterTempOverride)
-    technique_score.dart      # TechniqueType, TechniqueScore
-    feeder_plan.dart          # FeederPlan
-    diary_entry.dart          # DiaryEntry, CatchItem
+    technique_score.dart, feeder_plan.dart, diary_entry.dart
+    bait_product.dart         # BaitProduct (katalog)
+    water_combo.dart          # WaterCombo, Season, FishActivity, activityMod()/seasonLabel()
   services/
-    weather_service.dart      # Open-Meteo forecast
-    water_service.dart        # offline vode (serbia_waters.json) + GloFAS flood API
-    rhmz_service.dart         # scrape hidmet.gov.rs: temp vode + prognoza nivoa
-    location_service.dart     # Open-Meteo geocoding (RS) + Nominatim reverse
-    favorites_service.dart, recent_searches_service.dart, diary_service.dart
+    weather_service, water_service, rhmz_service, location_service,
+    favorites_service, recent_searches_service, diary_service
   screens/
-    home_screen.dart, result_screen.dart, waters_list_screen.dart, map_screen.dart,
-    regulations_screen.dart, diary_list_screen.dart, diary_entry_screen.dart, diary_stats_screen.dart
+    app_shell.dart            # bottom nav (Početna/Mapa/Dnevnik/Propisi)
+    home_screen, result_screen, waters_list_screen, map_screen,
+    regulations_screen, diary_list_screen, diary_entry_screen, diary_stats_screen
   utils/
     moon_calc.dart, sun_calc.dart, fish_icons.dart
   widgets/
-    score_gauge.dart, weather_param_tile.dart
+    components.dart           # deljene komponente (AppCard/Chip/Button/HalfGauge/PageHeader…)
+    score_gauge.dart, weather_param_tile.dart   # legacy (nekorišćeno posle redizajna)
 
 assets/
   data/serbia_waters.json     # 795 voda (offline)
   data/rhmz_stations.json     # 132 hidrološke stanice + koordinate
-  icons/*.png                 # 14 ikonica vrsta riba
+  icons/*.png                 # 15 ikonica vrsta riba (+ tolstolobik)
+  bait/*.jpg                  # slike Traper proizvoda (43/44)
+  brand/                      # logo lockup + cream/teal ribica + app-icon + adaptive foreground
 
-docs/UPGRADE_IDEAS.md         # plan razvoja + status
+docs/PROJECT_STATUS.md        # stanje + mapa puta + predlozi (glavni pregled)
+docs/UPGRADE_IDEAS.md, _2.md  # istraživanje
+docs/TRAPER_KOMBINACIJE.md    # recepti (human-readable)
 tools/                        # build skripte za datasetove (build_waters.py, build_stations.py)
 ```
 
@@ -160,14 +184,17 @@ python3 tools/build_stations.py      # zahteva data_raw/stanje_voda.html
 
 ## Status
 
-**Implementirano:** prognoza + ocenjivanje (sa smerom vetra, pravom temp vode, zora/sumrak),
+**Implementirano:** prognoza + ocenjivanje (smer vetra, prava temp vode, zora/sumrak),
 filter tehnike po intervalima, feeder/method savetnik, offline baza voda + karta, RHMZ temp +
-prognoza nivoa, lovostaj/mere/zaštićena područja, dnevnik + statistika, omiljene/nedavne.
+prognoza nivoa, lovostaj/mere/zaštićena područja, dnevnik + statistika, omiljene/nedavne,
+**Traper primame (44 katalog + 80 kombinacija + m-fishing kupovina)**, **pun redizajn light+dark**,
+bottom-nav shell, novi logo/ikona.
 
-**Otvoreno (vidi `docs/UPGRADE_IDEAS.md`):**
-- B2 Mohseni air→water model (treba kalibracione podatke; sad fallback = vazduh − sezonski offset)
-- B4 push notifikacije "feeder prozor" (background scheduling)
-- C2 slojevi karte (temp/nivo bojenje)
+**Otvoreno (vidi `docs/PROJECT_STATUS.md` za pun spisak + prioritete):**
+- D1 Traper recepti nisu zvanični (heuristika + 1 FB) — treba potvrda razmera
+- D2 3 delistovana m-fishing proizvoda (River u 9 combo-a) — buy-link pada na `/shop/`, treba SKU
+- SPRINT 2 pop-up/wafter hookbait grana; SPRINT 3 dnevnik inteligencija
+- B2 Mohseni air→water model; B4 push "feeder prozor"; C2 slojevi karte
 
 ---
 

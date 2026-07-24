@@ -18,8 +18,9 @@ import 'diary_entry_screen.dart';
 import '../utils/fish_icons.dart';
 import '../utils/moon_calc.dart';
 import '../utils/sun_calc.dart';
-import '../widgets/score_gauge.dart';
-import '../widgets/weather_param_tile.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
+import '../widgets/components.dart';
 
 /// Maps the seasonally-active fish to a feeder-relevant species tag for the
 /// bait recommender. Predators (smuđ/štuka/som/tolstolobik) are skipped —
@@ -112,23 +113,6 @@ class _ResultScreenState extends State<ResultScreen> {
     setState(() => _isFavorite = added);
   }
 
-  Color get _gradientStart {
-    final s = widget.score.score;
-    if (s >= 80) return const Color(0xFF1B5E20);
-    if (s >= 60) return const Color(0xFF33691E);
-    if (s >= 40) return const Color(0xFFE65100);
-    if (s >= 20) return const Color(0xFFBF360C);
-    return const Color(0xFFB71C1C);
-  }
-
-  Color get _gradientEnd {
-    final s = widget.score.score;
-    if (s >= 80) return const Color(0xFF00695C);
-    if (s >= 60) return const Color(0xFF2E7D32);
-    if (s >= 40) return const Color(0xFFF9A825);
-    if (s >= 20) return const Color(0xFFE64A19);
-    return const Color(0xFFC62828);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -167,133 +151,103 @@ class _ResultScreenState extends State<ResultScreen> {
     final curatedCombo = comboFor(selectedWaterBody?.name, seasonForMonth(now.month));
     final fishActivity = _activityFromScore(score.score);
 
+    final c = context.c;
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F7FF),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 340,
             pinned: true,
-            backgroundColor: _gradientStart,
-            foregroundColor: Colors.white,
+            backgroundColor: c.green2,
+            foregroundColor: c.onGreen,
+            leading: const BackButton(),
             title: Text(
               selectedWaterBody?.name ?? location.name,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: context.display(size: 17, color: c.onGreen),
               overflow: TextOverflow.ellipsis,
             ),
             actions: [
               IconButton(
-                icon: Icon(
-                  _isFavorite ? Icons.bookmark : Icons.bookmark_border,
-                  color: Colors.white,
-                ),
+                icon: Icon(_isFavorite ? Icons.bookmark : Icons.bookmark_border, color: c.onGreen),
                 tooltip: _isFavorite ? 'Ukloni iz omiljenih' : 'Dodaj u omiljene',
                 onPressed: _toggleFavorite,
               ),
             ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [_gradientStart, _gradientEnd],
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 48),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ScoreGauge(score: score, dark: true),
-                        const SizedBox(height: 8),
-                        Text(
-                          selectedWaterBody != null
-                              ? '${selectedWaterBody.name} · ${location.name}'
-                              : location.name,
-                          style: const TextStyle(color: Colors.white60, fontSize: 13),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '🌅 ${_fmtTime(sunrise)}   🌇 ${_fmtTime(sunset)}',
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                _ScoreHero(
+                  score: score,
+                  waterName: selectedWaterBody?.name ?? location.name,
+                  place: selectedWaterBody != null ? location.name : null,
+                  sunrise: _fmtTime(sunrise),
+                  sunset: _fmtTime(sunset),
+                ),
                 if (protectedArea != null) ...[
+                  const SizedBox(height: 12),
                   _ProtectedAreaCard(area: protectedArea),
-                  const SizedBox(height: 10),
                 ],
                 if (closedNow.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   _ClosedSeasonsCard(seasons: closedNow),
-                  const SizedBox(height: 10),
                 ],
-                if (protectedArea != null || closedNow.isNotEmpty) const SizedBox(height: 6),
-                const _Label('VREMENSKE PRILIKE'),
-                const SizedBox(height: 12),
+                const SectionHeader('Uslovi'),
                 GridView.count(
-                  crossAxisCount: 2,
+                  crossAxisCount: 3,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 1.15,
+                  childAspectRatio: 0.92,
                   children: [
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.thermostat,
-                      label: 'Temperatura',
-                      value: '${f.avgTemperature.toStringAsFixed(1)}°C',
-                      color: const Color(0xFFE53935),
+                      value: f.avgTemperature.toStringAsFixed(1),
+                      unit: '°C',
+                      label: 'Vazduh',
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.air,
-                      label: 'Vetar · ${_windDirLabel(f.avgWindDirection)}',
-                      value: '${f.avgWindSpeed.toStringAsFixed(1)} km/h',
-                      color: const Color(0xFF039BE5),
+                      value: f.avgWindSpeed.toStringAsFixed(0),
+                      unit: 'km/h',
+                      label: 'Vetar ${_windDirLabel(f.avgWindDirection)}',
                     ),
-                    WeatherParamTile(
-                      icon: Icons.water_drop,
-                      label: 'Padavine',
-                      value: '${f.totalPrecipitation.toStringAsFixed(1)} mm',
-                      color: const Color(0xFF1E88E5),
-                    ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.speed,
+                      value: f.avgPressure.toStringAsFixed(0),
+                      unit: 'mbar',
                       label: 'Pritisak',
-                      value: '${f.avgPressure.toStringAsFixed(0)} mbar',
-                      color: const Color(0xFF8E24AA),
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
+                      icon: Icons.water_drop,
+                      value: f.totalPrecipitation.toStringAsFixed(1),
+                      unit: 'mm',
+                      label: 'Padavine',
+                    ),
+                    ConditionTile(
                       icon: Icons.cloud,
+                      value: '${f.avgCloudCover}',
+                      unit: '%',
                       label: 'Oblačnost',
-                      value: '${f.avgCloudCover}%',
-                      color: const Color(0xFF546E7A),
                     ),
-                    WeatherParamTile(
+                    ConditionTile(
                       icon: Icons.water,
-                      label: _waterTemp != null
-                          ? 'Temp. vode · ${_waterTemp!.station}'
-                          : 'Temp. vode (proc.)',
                       value: _waterTemp != null
-                          ? '${_waterTemp!.tempC.toStringAsFixed(1)}°C'
-                          : '~${f.estimatedWaterTemperature.toStringAsFixed(0)}°C',
-                      color: const Color(0xFF00838F),
+                          ? _waterTemp!.tempC.toStringAsFixed(1)
+                          : '~${f.estimatedWaterTemperature.toStringAsFixed(0)}',
+                      unit: '°C',
+                      label: _waterTemp != null ? 'Voda' : 'Voda (proc.)',
                     ),
                   ],
                 ),
+                if (score.positives.isNotEmpty || score.negatives.isNotEmpty) ...[
+                  const SectionHeader('Zašto ovaj skor'),
+                  FactorList([
+                    for (final p in score.positives) FactorItem(positive: true, title: p),
+                    for (final n in score.negatives) FactorItem(positive: false, title: n),
+                  ]),
+                ],
                 const SizedBox(height: 16),
                 _PressureTrendCard(
                   category: f.pressureTrendCategory,
@@ -304,9 +258,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 // Vodostaj nema smisla za stajaće vode (jezera/bare) — samo reke.
                 if (selectedWaterBody?.type != 'lake' &&
                     (waterLevel != null || _levelForecasts.isNotEmpty)) ...[
-                  const SizedBox(height: 24),
-                  const _Label('VODOSTAJ'),
-                  const SizedBox(height: 10),
+                  const SectionHeader('Vodostaj'),
                   if (waterLevel != null)
                     _WaterLevelTile(
                       waterLevel: waterLevel,
@@ -316,7 +268,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'RHMZ prognoza nivoa — reke u blizini',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+                      style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted),
                     ),
                     const SizedBox(height: 6),
                     ..._levelForecasts.map((fc) => Padding(
@@ -325,9 +277,7 @@ class _ResultScreenState extends State<ResultScreen> {
                         )),
                   ],
                 ],
-                const SizedBox(height: 24),
-                const _Label('PROGNOZA PO INTERVALIMA'),
-                const SizedBox(height: 10),
+                const SectionHeader('Prognoza po intervalima'),
                 _TechniqueFilter(
                   selected: _intervalTech,
                   onChanged: (t) => setState(() => _intervalTech = t),
@@ -343,83 +293,51 @@ class _ResultScreenState extends State<ResultScreen> {
                   sunrise: sunrise,
                   sunset: sunset,
                 ),
-                if (score.positives.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  const _Label('POVOLJNO'),
-                  const SizedBox(height: 10),
-                  ...score.positives.map((p) => _FactorTile(text: p, positive: true)),
-                ],
-                if (score.negatives.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const _Label('NEPOVOLJNO'),
-                  const SizedBox(height: 10),
-                  ...score.negatives.map((n) => _FactorTile(text: n, positive: false)),
-                ],
-                const SizedBox(height: 24),
-                const _Label('TEHNIKE ZA DANAS'),
-                const SizedBox(height: 10),
+                const SectionHeader('Tehnike za danas'),
                 _TechniqueSection(techniques: techniques, feederRig: feederRig),
-                const SizedBox(height: 24),
-                _Label(selectedWaterBody?.type == 'lake'
-                    ? 'METHOD PLAN ZA DANAS'
-                    : 'FEEDER PLAN ZA DANAS'),
-                const SizedBox(height: 10),
+                SectionHeader(selectedWaterBody?.type == 'lake'
+                    ? 'Method plan za danas'
+                    : 'Feeder plan za danas'),
                 _FeederPlanCard(
                   plan: feederPlan,
                   realTemp: _waterTemp != null,
                 ),
                 if (curatedCombo != null) ...[
-                  const SizedBox(height: 24),
-                  const _Label('KURIRANA TRAPER KOMBINACIJA'),
-                  const SizedBox(height: 10),
+                  const SectionHeader('Kurirana Traper kombinacija'),
                   _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
                 ] else if (baitCombo != null) ...[
-                  const SizedBox(height: 24),
-                  const _Label('PREPORUČENE TRAPER PRIMAME'),
-                  const SizedBox(height: 10),
+                  const SectionHeader('Preporučene Traper primame'),
                   _TraperComboCard(combo: baitCombo),
                 ],
-                const SizedBox(height: 24),
-                const _Label('AKTIVNE VRSTE'),
-                const SizedBox(height: 10),
+                const SectionHeader('Aktivne vrste'),
                 _SeasonalFishSection(fish: seasonal),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      final entry = DiaryEntry(
-                        date: f.date,
-                        location: location.name,
-                        water: selectedWaterBody?.name,
-                        lat: location.latitude,
-                        lon: location.longitude,
-                        airTemp: f.avgTemperature,
-                        pressure: f.avgPressure,
-                        windSpeed: f.avgWindSpeed,
-                        waterTempReal: _waterTemp?.tempC,
-                        waterTrend: waterLevel?.trendLabel,
-                        moonPhase: moonPhaseVal,
-                      );
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DiaryEntryScreen(entry: entry, isNew: true),
-                        ),
-                      );
-                    },
-                    icon: const Text('📖', style: TextStyle(fontSize: 16)),
-                    label: const Text(
-                      'Zabeleži u dnevnik',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                  ),
+                const SizedBox(height: 24),
+                AppButton(
+                  'Zabeleži u dnevnik',
+                  icon: Icons.menu_book_outlined,
+                  block: true,
+                  large: true,
+                  onTap: () {
+                    final entry = DiaryEntry(
+                      date: f.date,
+                      location: location.name,
+                      water: selectedWaterBody?.name,
+                      lat: location.latitude,
+                      lon: location.longitude,
+                      airTemp: f.avgTemperature,
+                      pressure: f.avgPressure,
+                      windSpeed: f.avgWindSpeed,
+                      waterTempReal: _waterTemp?.tempC,
+                      waterTrend: waterLevel?.trendLabel,
+                      moonPhase: moonPhaseVal,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DiaryEntryScreen(entry: entry, isNew: true),
+                      ),
+                    );
+                  },
                 ),
               ]),
             ),
@@ -443,19 +361,124 @@ String _windDirLabel(double degrees) {
 
 // ── widgets ──────────────────────────────────────────────────────────────────
 
-class _Label extends StatelessWidget {
-  final String text;
-  const _Label(this.text);
+String _verdict(int s) => s >= 80
+    ? 'Odlično'
+    : s >= 60
+        ? 'Dobro'
+        : s >= 40
+            ? 'Osrednje'
+            : s >= 20
+                ? 'Slabo'
+                : 'Loše';
+
+String _verdictSub(int s) => s >= 60
+    ? 'Uslovi rade u tvoju korist — iskoristi dan.'
+    : s >= 40
+        ? 'Promenljivo — cilja se pravi prozor u danu.'
+        : 'Teški uslovi — strpljenje i fino hranjenje.';
+
+/// Score hero: tamno zeleni gradijent + poluluk merač + verdikt (light + dark).
+class _ScoreHero extends StatelessWidget {
+  final FishingScore score;
+  final String waterName;
+  final String? place;
+  final String sunrise, sunset;
+  const _ScoreHero({
+    required this.score,
+    required this.waterName,
+    this.place,
+    required this.sunrise,
+    required this.sunset,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.5,
-        color: Color(0xFF546E7A),
+    final c = context.c;
+    final v = score.score;
+    final numColor = c.score(v);
+    const onHero = Color(0xFFF4EFE1);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.l),
+        boxShadow: c.shadowLg,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [c.green2, c.greenInk],
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(waterName, style: context.display(size: 18, color: onHero), overflow: TextOverflow.ellipsis),
+                    if (place != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 13, color: onHero),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(place!,
+                                  style: context.ui(size: 12.5, weight: FontWeight.w600, color: onHero.withValues(alpha: 0.8)),
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              AppChip('🌅 $sunrise  🌇 $sunset', tone: ChipTone.gold, small: true),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              SizedBox(
+                width: 118,
+                child: Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    HalfGauge(value: v.toDouble(), color: numColor, trackColor: Colors.white.withValues(alpha: 0.18)),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: RichText(
+                        text: TextSpan(
+                          text: '$v',
+                          style: context.display(size: 44, weight: FontWeight.w800, color: onHero),
+                          children: [
+                            TextSpan(text: '/100', style: context.display(size: 16, color: onHero.withValues(alpha: 0.6))),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_verdict(v), style: context.display(size: 20, color: onHero)),
+                    const SizedBox(height: 3),
+                    Text(_verdictSub(v),
+                        style: context.ui(size: 12.5, weight: FontWeight.w600, color: onHero.withValues(alpha: 0.82))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -522,9 +545,9 @@ class _FeederPlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.c.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFA5D6A7)),
+        border: Border.all(color: context.c.green.withValues(alpha: 0.4)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -599,7 +622,7 @@ class _FeederPlanCard extends StatelessWidget {
                       const Text('💡 ', style: TextStyle(fontSize: 12)),
                       Expanded(
                         child: Text(n,
-                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                            style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
                       ),
                     ],
                   ),
@@ -660,12 +683,10 @@ class _TraperComboCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.c.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        boxShadow: context.c.shadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,7 +761,7 @@ class _TraperComboCard extends StatelessWidget {
                             const Text('💡 ', style: TextStyle(fontSize: 12)),
                             Expanded(
                               child: Text(r,
-                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                                  style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
                             ),
                           ],
                         ),
@@ -780,12 +801,10 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
     ];
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.c.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _traperGreen.withValues(alpha: 0.35)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        boxShadow: context.c.shadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,7 +849,7 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                     children: combo.species
                         .map((s) => Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(color: context.c.green.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
                               child: Text(s,
                                   style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF2E7D32))),
                             ))
@@ -874,7 +893,7 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(combo.hookbait!,
-                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800, height: 1.35)),
+                            style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.ink, height: 1.35)),
                       ),
                     ],
                   ),
@@ -886,7 +905,7 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                     const Text('🐟 ', style: TextStyle(fontSize: 13)),
                     Expanded(
                       child: Text(activityMod(widget.activity),
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700, height: 1.35)),
+                          style: context.ui(size: 11.5, weight: FontWeight.w500, color: context.c.muted, height: 1.35)),
                     ),
                   ],
                 ),
@@ -897,7 +916,7 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F8F3),
+                      color: context.c.surface3,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _traperGreen.withValues(alpha: 0.25)),
                     ),
@@ -941,7 +960,7 @@ class _PrepBlock extends StatelessWidget {
       children: [
         _MiniLabel(label),
         const SizedBox(height: 4),
-        Text(text, style: TextStyle(fontSize: 12, color: Colors.grey.shade800, height: 1.4)),
+        Text(text, style: context.ui(size: 12, weight: FontWeight.w500, color: context.c.ink, height: 1.4)),
       ],
     );
   }
@@ -953,7 +972,7 @@ class _MiniLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF546E7A), letterSpacing: 0.8));
+        style: context.ui(size: 10, weight: FontWeight.w800, color: context.c.muted, letterSpacing: 0.8));
   }
 }
 
@@ -984,6 +1003,7 @@ class _ProductRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final hasShop = product.productUrl != null;
     return InkWell(
       onTap: hasShop ? _openProduct : null,
@@ -994,8 +1014,10 @@ class _ProductRow extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: Image.asset(product.imageAsset, width: 64, height: 64, fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox(
-                    width: 64, height: 64, child: Icon(Icons.image_not_supported, size: 28))),
+                errorBuilder: (_, _, _) => SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Icon(Icons.image_not_supported, size: 28, color: c.faint))),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1007,22 +1029,22 @@ class _ProductRow extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
+                        color: c.green.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(_categoryLabel,
-                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF2E7D32))),
+                          style: context.ui(size: 9, weight: FontWeight.w800, color: c.green)),
                     ),
                     if (roleBadge != null) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1D5A33),
+                          color: c.green,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(roleBadge!,
-                            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white)),
+                            style: context.ui(size: 9, weight: FontWeight.w800, color: c.onBrand)),
                       ),
                     ],
                     if (product.flagship) ...[
@@ -1032,29 +1054,30 @@ class _ProductRow extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(product.name,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Color(0xFF1A237E))),
+                Text(product.name, style: context.ui(size: 13.5, weight: FontWeight.w700, color: c.ink)),
                 Text('${product.line} · ${product.flavorColor}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
                 const SizedBox(height: 2),
                 Text(product.shortDesc,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.3)),
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted, height: 1.3)),
                 if (hasShop) ...[
                   const SizedBox(height: 5),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.storefront, size: 13, color: Color(0xFF1D5A33)),
+                      Icon(Icons.storefront, size: 13, color: c.green),
                       const SizedBox(width: 4),
                       Text('Kupi na m-fishing.rs',
-                          style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1D5A33),
-                              decoration: TextDecoration.underline,
-                              decorationColor: const Color(0xFF1D5A33).withValues(alpha: 0.4))),
+                          style: context.ui(
+                              size: 10.5,
+                              weight: FontWeight.w700,
+                              color: c.green,
+                              letterSpacing: 0)
+                              .copyWith(
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: c.green.withValues(alpha: 0.4))),
                       const SizedBox(width: 3),
-                      const Icon(Icons.open_in_new, size: 12, color: Color(0xFF1D5A33)),
+                      Icon(Icons.open_in_new, size: 12, color: c.green),
                     ],
                   ),
                 ],
@@ -1313,41 +1336,6 @@ class _MoonSolunarCard extends StatelessWidget {
                 ),
               );
             }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FactorTile extends StatelessWidget {
-  final String text;
-  final bool positive;
-
-  const _FactorTile({required this.text, required this.positive});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = positive ? const Color(0xFF2E7D32) : const Color(0xFFC62828);
-    final bgColor = positive ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Icon(
-            positive ? Icons.check_circle_rounded : Icons.cancel_rounded,
-            color: color,
-            size: 18,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 14, color: color, fontWeight: FontWeight.w500),
-            ),
           ),
         ],
       ),
@@ -1775,15 +1763,9 @@ class _SeasonalFishSection extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.c.surface,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: context.c.shadow,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -6,7 +6,8 @@ import '../utils/fish_icons.dart';
 import '../widgets/components.dart';
 
 class RegulationsScreen extends StatelessWidget {
-  const RegulationsScreen({super.key});
+  final bool showBack;
+  const RegulationsScreen({super.key, this.showBack = true});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +29,7 @@ class RegulationsScreen extends StatelessWidget {
           PageHeader(
             title: 'Propisi i lovostaj',
             subtitle: closedCount > 0 ? '$closedCount u lovostaju danas' : 'Sve dozvoljeno danas',
-            showBack: true,
+            showBack: showBack,
           ),
           Expanded(
             child: ListView(

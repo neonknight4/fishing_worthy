@@ -12,12 +12,14 @@ class MapScreen extends StatefulWidget {
   final double latitude;
   final double longitude;
   final String locationName;
+  final bool showBack;
 
   const MapScreen({
     super.key,
     required this.latitude,
     required this.longitude,
     required this.locationName,
+    this.showBack = true,
   });
 
   @override
@@ -53,7 +55,7 @@ class _MapScreenState extends State<MapScreen> {
           PageHeader(
             title: 'Mapa voda',
             subtitle: _loading ? widget.locationName : '${_waters.length} voda u krugu 50 km',
-            showBack: true,
+            showBack: widget.showBack,
           ),
           Expanded(
             child: Stack(

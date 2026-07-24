@@ -9,7 +9,8 @@ import 'diary_entry_screen.dart';
 import 'diary_stats_screen.dart';
 
 class DiaryListScreen extends StatefulWidget {
-  const DiaryListScreen({super.key});
+  final bool showBack;
+  const DiaryListScreen({super.key, this.showBack = true});
 
   @override
   State<DiaryListScreen> createState() => _DiaryListScreenState();
@@ -71,7 +72,7 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
           PageHeader(
             title: 'Dnevnik',
             subtitle: _entries.isEmpty ? 'Nema unosa' : '${_entries.length} izlazaka · $totalCatch riba',
-            showBack: true,
+            showBack: widget.showBack,
             actions: [
               if (_entries.isNotEmpty)
                 AppIconButton(Icons.bar_chart, onTap: () => Navigator.push(

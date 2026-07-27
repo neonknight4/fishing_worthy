@@ -24,9 +24,14 @@ class DiaryEntryScreen extends StatefulWidget {
 
 class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   static const _maxPhotos = 5;
+  static const _techniques = ['Feeder', 'Method', 'Plovak', 'Dubinka', 'Varalica'];
+  static const _baitOptions = ['Crv', 'Glista', 'Kukuruz', 'Pšenica', 'Bojli', 'Pelet', 'Testo', 'Kaster', 'Tigrov orah'];
+
   final _service = DiaryService();
   final _picker = ImagePicker();
-  late TextEditingController _technique, _bait, _notes;
+  late TextEditingController _notes;
+  String? _tech;
+  late Set<String> _baits;
   late List<CatchItem> _catches;
   late List<String> _photos;
   late DateTime _date;
@@ -37,9 +42,13 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   @override
   void initState() {
     super.initState();
-    _technique = TextEditingController(text: widget.entry.technique ?? '');
-    _bait = TextEditingController(text: widget.entry.bait ?? '');
     _notes = TextEditingController(text: widget.entry.notes ?? '');
+    _tech = widget.entry.technique;
+    _baits = (widget.entry.bait ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toSet();
     _catches = [...widget.entry.catches];
     _photos = [...widget.entry.photos];
     _date = widget.entry.date;
@@ -90,8 +99,6 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
 
   @override
   void dispose() {
-    _technique.dispose();
-    _bait.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -100,8 +107,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     setState(() => _saving = true);
     final e = widget.entry.copyWith(
       date: _date,
-      technique: _technique.text.trim().isEmpty ? null : _technique.text.trim(),
-      bait: _bait.text.trim().isEmpty ? null : _bait.text.trim(),
+      technique: _tech,
+      bait: _baits.isEmpty ? null : _baits.join(', '),
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       catches: _catches,
       photos: _photos,
@@ -178,10 +185,20 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 const SizedBox(height: 14),
                 _photosSection(),
                 const SizedBox(height: 14),
-                _textField('Tehnika', _technique, 'npr. feeder, varalica, plovak'),
-                const SizedBox(height: 12),
-                _textField('Mamac', _bait, 'npr. glista, kukuruz, boila'),
-                const SizedBox(height: 12),
+                _chipField(
+                  'Tehnika',
+                  _techniques,
+                  (o) => _tech == o,
+                  (o) => setState(() => _tech = _tech == o ? null : o),
+                ),
+                const SizedBox(height: 14),
+                _chipField(
+                  'Mamac',
+                  _baitOptions,
+                  (o) => _baits.contains(o),
+                  (o) => setState(() => _baits.contains(o) ? _baits.remove(o) : _baits.add(o)),
+                ),
+                const SizedBox(height: 14),
                 _textField('Beleške', _notes, 'Komentar dana…', lines: 4),
               ],
             ),
@@ -349,6 +366,36 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _chipField(String label, List<String> options, bool Function(String) selected, void Function(String) onTap) {
+    final c = context.c;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label.toUpperCase(), style: context.ui(size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 0.4)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: options.map((o) {
+            final on = selected(o);
+            return GestureDetector(
+              onTap: () => onTap(o),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: on ? c.green.withValues(alpha: 0.14) : c.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: on ? c.green : c.line, width: on ? 2 : 1),
+                ),
+                child: Text(o, style: context.ui(size: 13, weight: FontWeight.w600, color: on ? c.green : c.ink)),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 

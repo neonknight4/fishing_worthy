@@ -43,6 +43,7 @@ class DiaryEntry {
   // User input
   final String? technique, bait, notes;
   final List<CatchItem> catches;
+  final List<String> photos; // putanje do fotografija (max 5)
 
   const DiaryEntry({
     this.id,
@@ -61,6 +62,7 @@ class DiaryEntry {
     this.bait,
     this.notes,
     this.catches = const [],
+    this.photos = const [],
   });
 
   int get totalCatch => catches.fold(0, (s, c) => s + c.count);
@@ -82,6 +84,7 @@ class DiaryEntry {
         'bait': bait,
         'notes': notes,
         'catches': jsonEncode(catches.map((c) => c.toJson()).toList()),
+        'photos': jsonEncode(photos),
         'created_at': date.millisecondsSinceEpoch,
       };
 
@@ -90,6 +93,8 @@ class DiaryEntry {
     final list = (jsonDecode(rawCatches) as List)
         .map((e) => CatchItem.fromJson(e as Map<String, dynamic>))
         .toList();
+    final rawPhotos = (m['photos'] as String?) ?? '[]';
+    final photoList = (jsonDecode(rawPhotos) as List).cast<String>();
     return DiaryEntry(
       id: m['id'] as int?,
       date: DateTime.parse(m['date'] as String),
@@ -107,6 +112,7 @@ class DiaryEntry {
       bait: m['bait'] as String?,
       notes: m['notes'] as String?,
       catches: list,
+      photos: photoList,
     );
   }
 
@@ -116,6 +122,7 @@ class DiaryEntry {
     String? technique,
     String? bait,
     String? notes,
+    List<String>? photos,
   }) =>
       DiaryEntry(
         id: id ?? this.id,
@@ -134,5 +141,6 @@ class DiaryEntry {
         bait: bait ?? this.bait,
         notes: notes ?? this.notes,
         catches: catches ?? this.catches,
+        photos: photos ?? this.photos,
       );
 }

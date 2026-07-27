@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
@@ -199,6 +200,27 @@ class _EntryCard extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 8),
             Text('Bez ulova', style: context.ui(size: 12, weight: FontWeight.w500, color: c.faint)),
+          ],
+          if (entry.photos.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 56,
+              child: Row(
+                children: [
+                  for (final ph in entry.photos.take(5))
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(File(ph), width: 56, height: 56, fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                                width: 56, height: 56, color: c.surface3,
+                                child: Icon(Icons.broken_image, color: c.faint, size: 20))),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
           if (entry.notes != null && entry.notes!.isNotEmpty) ...[
             const SizedBox(height: 8),

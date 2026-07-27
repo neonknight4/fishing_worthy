@@ -456,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text('Gde pecaš\ndanas?', style: context.display(size: 26, color: c.onGreen)),
                 const SizedBox(height: 8),
-                Text('Izaberi vodu i saznaj kolika je šansa za ugriz.',
+                Text('Izaberi vodu i proveri stanje.',
                     style: context.ui(size: 13.5, weight: FontWeight.w600, color: c.onGreen.withValues(alpha: 0.82))),
                 const SizedBox(height: 16),
                 AppButton('Moja lokacija',

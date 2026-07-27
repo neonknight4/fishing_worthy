@@ -3,7 +3,7 @@
 > Konsolidovan pregled: gde smo sada, šta je otvoreno, i predlozi za dalje.
 > Datum: **2026-07-24**. Grana: `feature/traper-bait-recommender`.
 > Ostali docs: `README.md` (tehnički), `docs/TRAPER_KOMBINACIJE.md` (recepti),
-> `docs/UPGRADE_IDEAS.md` + `_2.md` (istraživanje), `SPRINT.md` (stari plan), `prompt.md` (dizajn brief).
+> `docs/METHOD_TAB.md` + `METHOD_REVIRI.md` (Method), `docs/TRAPER_KOMBINACIJE.md` (recepti), `docs/archive/` (stari planovi/istraživanje).
 
 ---
 

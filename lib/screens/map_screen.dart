@@ -149,6 +149,35 @@ class _MapScreenState extends State<MapScreen> {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => DiaryEntryScreen(entry: e, isNew: false)));
   }
 
+  /// Proveri stanje (skor + uslovi) na custom tački — koristi isti engine
+  /// (vreme za tačku + najbliža RHMZ stanica za temp vode + GloFAS protok).
+  Future<void> _checkCustom(LatLng p) async {
+    setState(() => _choosing = true);
+    try {
+      final forecasts = await _weatherService.fetchForecast(p.latitude, p.longitude);
+      if (forecasts.isEmpty) return;
+      final wl = await _waterService
+          .fetchWaterLevelForecast(p.latitude, p.longitude, waterBodyName: _customName)
+          .catchError((_) => null);
+      final score = FishingScore.calculate(forecasts.first, waterLevel: wl);
+      if (!mounted) return;
+      final name = _customName ?? 'Izabrana tačka';
+      setState(() { _choosing = false; _customPoint = null; });
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResultScreen(
+            score: score,
+            location: LocationInfo(name: name, latitude: p.latitude, longitude: p.longitude),
+            waterLevel: wl,
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _choosing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final center = LatLng(widget.latitude, widget.longitude);
@@ -320,8 +349,12 @@ class _MapScreenState extends State<MapScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            AppButton(_choosing ? 'Beležim…' : 'Zabeleži ulov ovde',
-                icon: Icons.menu_book_outlined, block: true,
+            AppButton(_choosing ? 'Učitavam…' : 'Proveri stanje ovde',
+                icon: Icons.assessment_outlined, block: true,
+                onTap: _choosing ? null : () => _checkCustom(p)),
+            const SizedBox(height: 8),
+            AppButton('Zabeleži ulov ovde',
+                icon: Icons.menu_book_outlined, kind: BtnKind.outline, block: true,
                 onTap: _choosing ? null : () => _logAt(p)),
           ],
         ),

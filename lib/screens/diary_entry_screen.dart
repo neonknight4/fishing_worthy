@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
 import '../theme/app_colors.dart';
@@ -17,9 +21,12 @@ class DiaryEntryScreen extends StatefulWidget {
 }
 
 class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
+  static const _maxPhotos = 5;
   final _service = DiaryService();
+  final _picker = ImagePicker();
   late TextEditingController _technique, _bait, _notes;
   late List<CatchItem> _catches;
+  late List<String> _photos;
   bool _saving = false;
 
   @override
@@ -29,6 +36,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     _bait = TextEditingController(text: widget.entry.bait ?? '');
     _notes = TextEditingController(text: widget.entry.notes ?? '');
     _catches = [...widget.entry.catches];
+    _photos = [...widget.entry.photos];
   }
 
   @override
@@ -46,6 +54,7 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       bait: _bait.text.trim().isEmpty ? null : _bait.text.trim(),
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       catches: _catches,
+      photos: _photos,
     );
     if (widget.isNew) {
       await _service.insert(e);
@@ -63,6 +72,30 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
       builder: (_) => const _AddCatchSheet(),
     );
     if (item != null) setState(() => _catches.add(item));
+  }
+
+  Future<void> _addPhoto() async {
+    if (_photos.length >= _maxPhotos) return;
+    final src = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SourceSheet(),
+    );
+    if (src == null) return;
+    final x = await _picker.pickImage(source: src, maxWidth: 1600, imageQuality: 80);
+    if (x == null) return;
+    final dir = await getApplicationDocumentsDirectory();
+    final photosDir = Directory(p.join(dir.path, 'diary_photos'));
+    if (!await photosDir.exists()) await photosDir.create(recursive: true);
+    final dest = p.join(photosDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(x.path)}');
+    await File(x.path).copy(dest);
+    if (mounted) setState(() => _photos.add(dest));
+  }
+
+  void _removePhoto(int i) {
+    final path = _photos[i];
+    setState(() => _photos.removeAt(i));
+    File(path).delete().catchError((_) => File(path));
   }
 
   String _fmtDate(DateTime d) => '${d.day}.${d.month}.${d.year}.';
@@ -87,6 +120,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 _conditionsCard(e),
                 const SizedBox(height: 14),
                 _catchesSection(),
+                const SizedBox(height: 14),
+                _photosSection(),
                 const SizedBox(height: 14),
                 _textField('Tehnika', _technique, 'npr. feeder, varalica, plovak'),
                 const SizedBox(height: 12),
@@ -276,6 +311,92 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _photosSection() {
+    final c = context.c;
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('FOTOGRAFIJE', style: context.ui(size: 11, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.2)),
+              const Spacer(),
+              Text('${_photos.length}/$_maxPhotos', style: context.ui(size: 12, weight: FontWeight.w700, color: c.muted)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (int i = 0; i < _photos.length; i++)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(File(_photos[i]), width: 76, height: 76, fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                              width: 76, height: 76, color: c.surface3,
+                              child: Icon(Icons.broken_image, color: c.faint, size: 24))),
+                    ),
+                    Positioned(
+                      top: 2, right: 2,
+                      child: GestureDetector(
+                        onTap: () => _removePhoto(i),
+                        child: Container(
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), shape: BoxShape.circle),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(Icons.close, size: 15, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (_photos.length < _maxPhotos)
+                GestureDetector(
+                  onTap: _addPhoto,
+                  child: Container(
+                    width: 76, height: 76,
+                    decoration: BoxDecoration(
+                      color: c.surface3,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: c.line),
+                    ),
+                    child: Icon(Icons.add_a_photo_outlined, color: c.green, size: 24),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Izbor izvora slike (kamera / galerija).
+class _SourceSheet extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 14, 20, MediaQuery.of(context).padding.bottom + 20),
+      decoration: BoxDecoration(color: c.bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          AppButton('Kamera', icon: Icons.photo_camera, block: true,
+              onTap: () => Navigator.pop(context, ImageSource.camera)),
+          const SizedBox(height: 8),
+          AppButton('Galerija', icon: Icons.photo_library_outlined, kind: BtnKind.outline, block: true,
+              onTap: () => Navigator.pop(context, ImageSource.gallery)),
+        ],
+      ),
     );
   }
 }

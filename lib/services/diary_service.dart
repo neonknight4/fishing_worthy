@@ -10,7 +10,7 @@ class DiaryService {
     final dir = await getDatabasesPath();
     _db = await openDatabase(
       p.join(dir, 'fishing_diary.db'),
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE diary(
@@ -24,6 +24,7 @@ class DiaryService {
             water_trend TEXT, moon_phase REAL,
             technique TEXT, bait TEXT, notes TEXT,
             catches TEXT,
+            photos TEXT,
             created_at INTEGER
           )
         ''');
@@ -31,6 +32,9 @@ class DiaryService {
       onUpgrade: (db, oldV, newV) async {
         if (oldV < 2) {
           await db.execute('ALTER TABLE diary ADD COLUMN water_temp REAL');
+        }
+        if (oldV < 3) {
+          await db.execute('ALTER TABLE diary ADD COLUMN photos TEXT');
         }
       },
     );

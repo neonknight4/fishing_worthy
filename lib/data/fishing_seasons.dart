@@ -117,6 +117,7 @@ const iconFishRegulations = [
   FishReg(name: 'Bucov', fromMonth: 4, fromDay: 15, toMonth: 6, toDay: 15, minSizeCm: 30),
   FishReg(name: 'Amur', note: 'Bez lovostaja'),
   FishReg(name: 'Bodorka', note: 'Bez lovostaja'),
+  FishReg(name: 'Tolstolobik', note: 'Bez lovostaja'),
   FishReg(name: 'Babuška', note: 'Invazivna — slobodan izlov, bez ograničenja'),
 ];
 

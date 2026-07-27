@@ -37,6 +37,11 @@ class _MapScreenState extends State<MapScreen> {
   WaterBody? _selected;
   bool _loading = true;
   bool _choosing = false;
+  String _filter = 'sve'; // 'sve' | 'reka' | 'jezero'
+
+  List<WaterBody> get _filtered => _filter == 'sve'
+      ? _waters
+      : _waters.where((w) => _filter == 'reka' ? w.type == 'river' : w.type != 'river').toList();
 
   @override
   void initState() {
@@ -92,7 +97,7 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           PageHeader(
             title: 'Mapa voda',
-            subtitle: _loading ? widget.locationName : '${_waters.length} voda u krugu 50 km',
+            subtitle: _loading ? widget.locationName : '${_filtered.length} voda u krugu 50 km',
             showBack: widget.showBack,
           ),
           Expanded(
@@ -120,10 +125,28 @@ class _MapScreenState extends State<MapScreen> {
                           height: 40,
                           child: Icon(Icons.my_location, color: context.c.coral, size: 28),
                         ),
-                        for (final w in _waters) _waterMarker(w),
+                        for (final w in _filtered) _waterMarker(w),
                       ],
                     ),
                   ],
+                ),
+                // filter čipovi
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  top: 12,
+                  child: Row(
+                    children: [
+                      for (final f in const [('sve', 'Sve'), ('reka', 'Reke'), ('jezero', 'Jezera')])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() { _filter = f.$1; _selected = null; }),
+                            child: AppChip(f.$2, tone: _filter == f.$1 ? ChipTone.green : ChipTone.neutral),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 if (_loading) const Center(child: CircularProgressIndicator()),
                 Positioned(

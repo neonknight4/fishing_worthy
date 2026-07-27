@@ -79,21 +79,70 @@ class _FishRegRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final closed = reg.isClosedOn(today);
     final icon = fishIconAsset(reg.name);
-    return ListRowCard(
-      leading: icon != null
-          ? Image.asset(icon, width: 40, height: 40, fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Text('🐟', style: TextStyle(fontSize: 24)))
-          : const Text('🐟', style: TextStyle(fontSize: 24)),
-      title: reg.name,
-      subtitle: reg.hasClosedSeason
-          ? 'Lovostaj: ${reg.dateRange}${reg.minSizeCm != null ? '  ·  min ${reg.minSizeCm} cm' : ''}'
-          : (reg.note ?? 'Bez lovostaja'),
-      trailing: AppChip(
-        closed ? 'Lovostaj' : 'Dozvoljeno',
-        tone: closed ? ChipTone.warn : ChipTone.green,
-        small: true,
+    return AppCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(color: c.surface3, borderRadius: BorderRadius.circular(12)),
+                clipBehavior: Clip.antiAlias,
+                child: Center(
+                  child: icon != null
+                      ? Image.asset(icon, width: 40, height: 40, fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => const Text('🐟', style: TextStyle(fontSize: 24)))
+                      : const Text('🐟', style: TextStyle(fontSize: 24)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(reg.name, style: context.display(size: 16))),
+              AppChip(
+                closed ? 'U lovostaju' : 'Dozvoljeno',
+                tone: closed ? ChipTone.warn : ChipTone.green,
+                small: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (reg.hasClosedSeason)
+                _pill(context, Icons.event_busy, 'Lovostaj: ${reg.dateRange}',
+                    tone: closed ? c.coral : c.gold)
+              else
+                _pill(context, Icons.check_circle_outline, reg.note ?? 'Bez lovostaja', tone: c.green),
+              if (reg.minSizeCm != null)
+                _pill(context, Icons.straighten, 'Min. ${reg.minSizeCm} cm', tone: c.water2),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(BuildContext context, IconData icon, String text, {required Color tone}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: tone),
+          const SizedBox(width: 5),
+          Text(text, style: context.ui(size: 12, weight: FontWeight.w700, color: tone)),
+        ],
       ),
     );
   }

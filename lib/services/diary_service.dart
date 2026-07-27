@@ -1,6 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import '../models/diary_entry.dart';
+
+/// Bumpuje se pri svakoj izmeni dnevnika — ekrani (npr. lista u tab-u)
+/// slušaju i osvežavaju se čak i kad su živi u IndexedStack-u.
+final diaryRevision = ValueNotifier<int>(0);
 
 class DiaryService {
   static Database? _db;
@@ -43,17 +48,21 @@ class DiaryService {
 
   Future<int> insert(DiaryEntry e) async {
     final db = await _open();
-    return db.insert('diary', e.toMap());
+    final id = await db.insert('diary', e.toMap());
+    diaryRevision.value++;
+    return id;
   }
 
   Future<void> update(DiaryEntry e) async {
     final db = await _open();
     await db.update('diary', e.toMap(), where: 'id = ?', whereArgs: [e.id]);
+    diaryRevision.value++;
   }
 
   Future<void> delete(int id) async {
     final db = await _open();
     await db.delete('diary', where: 'id = ?', whereArgs: [id]);
+    diaryRevision.value++;
   }
 
   Future<List<DiaryEntry>> all() async {

@@ -5,9 +5,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/diary_entry.dart';
 import '../services/diary_service.dart';
+import '../services/weather_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
+import '../utils/moon_calc.dart';
 import '../widgets/components.dart';
 
 class DiaryEntryScreen extends StatefulWidget {
@@ -27,7 +29,10 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   late TextEditingController _technique, _bait, _notes;
   late List<CatchItem> _catches;
   late List<String> _photos;
+  late DateTime _date;
+  double? _air, _pressure, _wind, _moon, _waterTemp;
   bool _saving = false;
+  bool _fetchingWx = false;
 
   @override
   void initState() {
@@ -37,6 +42,50 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     _notes = TextEditingController(text: widget.entry.notes ?? '');
     _catches = [...widget.entry.catches];
     _photos = [...widget.entry.photos];
+    _date = widget.entry.date;
+    _air = widget.entry.airTemp;
+    _pressure = widget.entry.pressure;
+    _wind = widget.entry.windSpeed;
+    _moon = widget.entry.moonPhase;
+    _waterTemp = widget.entry.waterTempReal;
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date.isAfter(now) ? now : _date,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      helpText: 'Datum izlaska',
+    );
+    if (picked == null || _sameDay(picked, _date)) return;
+    setState(() {
+      _date = picked;
+      _moon = MoonCalc.phase(picked);
+    });
+    _refetchConditions();
+  }
+
+  bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Povuci uslove za izabrani (prošli) datum na koordinatama izlaska.
+  Future<void> _refetchConditions() async {
+    final e = widget.entry;
+    if (e.lat == null || e.lon == null) return;
+    setState(() => _fetchingWx = true);
+    final day = await WeatherService().fetchDay(e.lat!, e.lon!, _date);
+    if (!mounted) return;
+    setState(() {
+      if (day != null) {
+        _air = day.avgTemperature;
+        _pressure = day.avgPressure;
+        _wind = day.avgWindSpeed;
+      }
+      // Istorijska temp vode (RHMZ) nije dostupna za prošle dane.
+      if (!_sameDay(_date, DateTime.now())) _waterTemp = null;
+      _fetchingWx = false;
+    });
   }
 
   @override
@@ -50,11 +99,17 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final e = widget.entry.copyWith(
+      date: _date,
       technique: _technique.text.trim().isEmpty ? null : _technique.text.trim(),
       bait: _bait.text.trim().isEmpty ? null : _bait.text.trim(),
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       catches: _catches,
       photos: _photos,
+      airTemp: _air,
+      pressure: _pressure,
+      windSpeed: _wind,
+      moonPhase: _moon,
+      waterTempReal: _waterTemp,
     );
     if (widget.isNew) {
       await _service.insert(e);
@@ -152,11 +207,14 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   Widget _headerCard(DiaryEntry e) {
     final c = context.c;
     return AppCard(
+      onTap: _pickDate,
       child: Row(
         children: [
           Icon(Icons.calendar_today, size: 18, color: c.water),
           const SizedBox(width: 8),
-          Text(_fmtDate(e.date), style: context.display(size: 15, weight: FontWeight.w700)),
+          Text(_fmtDate(_date), style: context.display(size: 15, weight: FontWeight.w700)),
+          const SizedBox(width: 6),
+          Icon(Icons.edit, size: 14, color: c.faint),
           const Spacer(),
           Flexible(
             child: Column(
@@ -176,20 +234,27 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   Widget _conditionsCard(DiaryEntry e) {
     final c = context.c;
     final items = <String>[];
-    if (e.airTemp != null) items.add('🌡 ${e.airTemp!.toStringAsFixed(0)}°C');
-    if (e.waterTempReal != null) items.add('💧 ${e.waterTempReal!.toStringAsFixed(1)}°C vode');
-    if (e.pressure != null) items.add('📊 ${e.pressure!.toStringAsFixed(0)} mbar');
-    if (e.windSpeed != null) items.add('💨 ${e.windSpeed!.toStringAsFixed(0)} km/h');
+    if (_air != null) items.add('🌡 ${_air!.toStringAsFixed(0)}°C');
+    if (_waterTemp != null) items.add('💧 ${_waterTemp!.toStringAsFixed(1)}°C vode');
+    if (_pressure != null) items.add('📊 ${_pressure!.toStringAsFixed(0)} mbar');
+    if (_wind != null) items.add('💨 ${_wind!.toStringAsFixed(0)} km/h');
     if (e.waterTrend != null) items.add('🌊 ${e.waterTrend!}');
-    if (e.moonPhase != null) items.add('🌙 ${_moonLabel(e.moonPhase!)}');
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (_moon != null) items.add('🌙 ${_moonLabel(_moon!)}');
+    if (items.isEmpty && !_fetchingWx) return const SizedBox.shrink();
 
     return AppCard(
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('USLOVI TOG DANA', style: context.ui(size: 10, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.2)),
+          Row(
+            children: [
+              Text('USLOVI TOG DANA', style: context.ui(size: 10, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.2)),
+              const Spacer(),
+              if (_fetchingWx)
+                const SizedBox(width: 13, height: 13, child: CircularProgressIndicator(strokeWidth: 2)),
+            ],
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,

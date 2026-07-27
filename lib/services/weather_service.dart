@@ -24,6 +24,30 @@ class WeatherService {
     return _parse(data);
   }
 
+  /// Uslovi za jedan (prošli) dan — za dnevnik unos sa promenjenim datumom.
+  /// Vraća `null` ako datum nije dostupan (prestar) ili greška.
+  Future<DailyForecast?> fetchDay(double lat, double lon, DateTime day) async {
+    final d = '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+    final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+      'latitude': lat.toString(),
+      'longitude': lon.toString(),
+      'hourly': 'temperature_2m,precipitation,cloudcover,windspeed_10m,winddirection_10m,pressure_msl,weathercode',
+      'start_date': d,
+      'end_date': d,
+      'timezone': 'auto',
+      'windspeed_unit': 'kmh',
+    });
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode != 200) return null;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final days = _parse(data);
+      return days.isEmpty ? null : days.first;
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<DailyForecast> _parse(Map<String, dynamic> data) {
     final hourly = data['hourly'] as Map<String, dynamic>;
     final times = (hourly['time'] as List).cast<String>();

@@ -7,7 +7,7 @@ ribolovni zakon (lovostaj, mere, zaštićena područja), pecaroški dnevnik, tak
 **Traper preporuke primama** (kurirane kombinacije po vodi/sezoni, sa m-fishing.rs kupovinom).
 
 > **Ime:** "Upecaj!" (display). Interni package/klasa ostaju `fishing_worthy` / `FishingWorthyApp`.
-> **Stanje i mapa puta:** `docs/PROJECT_STATUS.md`. Istraživanje: `docs/UPGRADE_IDEAS.md` + `_2.md`.
+> **Stanje i mapa puta:** `docs/PROJECT_STATUS.md`. Starije istraživanje/planovi: `docs/archive/`.
 > **Dizajn:** "moderan outdoor dashboard", light + dark (Baloo 2 + Manrope, brend tamno zelena).
 
 ---
@@ -108,32 +108,39 @@ lib/
   models/
     weather_data.dart         # DailyForecast, HourlyWeather, WaterBody, WaterLevelForecast, LocationInfo
     fishing_score.dart        # FishingScore.calculate (+ windDirectionAdjustment, waterTempOverride)
-    technique_score.dart, feeder_plan.dart, diary_entry.dart
+    technique_score.dart, feeder_plan.dart, diary_entry.dart (+ photos)
     bait_product.dart         # BaitProduct (katalog)
-    water_combo.dart          # WaterCombo, Season, FishActivity, activityMod()/seasonLabel()
+    water_combo.dart          # WaterCombo, Season, FishActivity
+    commercial_lake.dart      # CommercialLake (Method revir)
   services/
-    weather_service, water_service, rhmz_service, location_service,
-    favorites_service, recent_searches_service, diary_service
+    weather_service (+ fetchDay), water_service, rhmz_service, location_service,
+    favorites_service, recent_searches_service, diary_service (+ diaryRevision),
+    commercial_lakes_service
   screens/
-    app_shell.dart            # bottom nav (Početna/Mapa/Dnevnik/Propisi)
-    home_screen, result_screen, waters_list_screen, map_screen,
-    regulations_screen, diary_list_screen, diary_entry_screen, diary_stats_screen
+    app_shell.dart            # bottom nav: Početna · Mapa · Method · Traper · Dnevnik
+    home_screen, result_screen, waters_list_screen, map_screen, regulations_screen,
+    favorites_screen, method_screen (revir mapa), traper_screen + catalog_screen (PDF),
+    diary_list_screen, diary_entry_screen, diary_stats_screen
   utils/
     moon_calc.dart, sun_calc.dart, fish_icons.dart
   widgets/
     components.dart           # deljene komponente (AppCard/Chip/Button/HalfGauge/PageHeader…)
-    score_gauge.dart, weather_param_tile.dart   # legacy (nekorišćeno posle redizajna)
+    nav_icons.dart            # custom SVG ikone bottom nav-a
 
 assets/
-  data/serbia_waters.json     # 795 voda (offline)
-  data/rhmz_stations.json     # 132 hidrološke stanice + koordinate
-  icons/*.png                 # 15 ikonica vrsta riba (+ tolstolobik)
-  bait/*.jpg                  # slike Traper proizvoda (43/44)
-  brand/                      # logo lockup + cream/teal ribica + app-icon + adaptive foreground
+  data/serbia_waters.json         # 795 voda (offline)
+  data/rhmz_stations.json         # 132 hidrološke stanice + koordinate
+  data/commercial_lakes.json      # 18 komercijalnih method revira (Method tab)
+  icons/*.png                     # 15 ikonica vrsta riba (+ tolstolobik)
+  bait/*.jpg                      # slike Traper proizvoda (43)
+  brand/                          # logo lockup + ribica + app/adaptive ikona
+  catalog/traper_katalog_2026.pdf # Traper katalog (bundlovan, 23MB)
 
 docs/PROJECT_STATUS.md        # stanje + mapa puta + predlozi (glavni pregled)
-docs/UPGRADE_IDEAS.md, _2.md  # istraživanje
+docs/METHOD_TAB.md            # plan Method taba (+ školica ideja)
+docs/METHOD_REVIRI.md         # komercijalni reviri (podaci + istraživanje)
 docs/TRAPER_KOMBINACIJE.md    # recepti (human-readable)
+docs/archive/                 # stariji planovi/istraživanje (SPRINT, UPGRADE_IDEAS)
 tools/                        # build skripte za datasetove (build_waters.py, build_stations.py)
 ```
 

@@ -26,6 +26,13 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
   void initState() {
     super.initState();
     _load();
+    diaryRevision.addListener(_load);
+  }
+
+  @override
+  void dispose() {
+    diaryRevision.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {

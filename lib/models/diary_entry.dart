@@ -118,25 +118,31 @@ class DiaryEntry {
 
   DiaryEntry copyWith({
     int? id,
+    DateTime? date,
     List<CatchItem>? catches,
     String? technique,
     String? bait,
     String? notes,
     List<String>? photos,
+    double? airTemp,
+    double? pressure,
+    double? windSpeed,
+    double? moonPhase,
+    Object? waterTempReal = _unset,
   }) =>
       DiaryEntry(
         id: id ?? this.id,
-        date: date,
+        date: date ?? this.date,
         location: location,
         water: water,
         lat: lat,
         lon: lon,
-        airTemp: airTemp,
-        pressure: pressure,
-        windSpeed: windSpeed,
-        waterTempReal: waterTempReal,
+        airTemp: airTemp ?? this.airTemp,
+        pressure: pressure ?? this.pressure,
+        windSpeed: windSpeed ?? this.windSpeed,
+        waterTempReal: waterTempReal == _unset ? this.waterTempReal : waterTempReal as double?,
         waterTrend: waterTrend,
-        moonPhase: moonPhase,
+        moonPhase: moonPhase ?? this.moonPhase,
         technique: technique ?? this.technique,
         bait: bait ?? this.bait,
         notes: notes ?? this.notes,
@@ -144,3 +150,6 @@ class DiaryEntry {
         photos: photos ?? this.photos,
       );
 }
+
+/// Sentinel za copyWith polja koja mogu eksplicitno na null.
+const _unset = Object();

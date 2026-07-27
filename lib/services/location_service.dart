@@ -53,6 +53,9 @@ class LocationService {
     }).take(8).toList();
   }
 
+  /// Javni reverse-geocode (naziv mesta iz koordinata) — za custom tačku na mapi.
+  Future<String> placeName(double lat, double lon) => _reverseGeocode(lat, lon);
+
   Future<String> _reverseGeocode(double lat, double lon) async {
     try {
       final uri = Uri.parse('https://nominatim.openstreetmap.org/reverse').replace(

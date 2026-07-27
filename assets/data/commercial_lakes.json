@@ -1,0 +1,308 @@
+[
+  {
+    "name": "Mika Alas (Veliko Blato)",
+    "city": "Krnjača/Borča, Beograd",
+    "lat": 44.870563,
+    "lon": 20.488563,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "som",
+      "štuka"
+    ],
+    "method": true,
+    "hours": "~09–21h, noćni ribolov",
+    "rules": "13 platformi; C&R filozofija",
+    "contact": "+381 63 631389",
+    "link": "https://velikoblato.rs",
+    "confidence": "single"
+  },
+  {
+    "name": "Aqua Dreams Samaila",
+    "city": "Samaila, Kraljevo",
+    "lat": 43.763063,
+    "lon": 20.565938,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "som",
+      "smuđ"
+    ],
+    "method": true,
+    "permit": "1.000 RSD (do 10kg) / 1.500 (do 30kg)",
+    "rules": "kompleks: bazeni, restoran, apartmani",
+    "contact": "+381 64 20 18 921",
+    "link": "https://bazeni-samaila.com",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Sisevac Terme",
+    "city": "Sisevac, Paraćin",
+    "lat": 43.95628,
+    "lon": 21.58708,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "som",
+      "amur",
+      "bela riba"
+    ],
+    "method": true,
+    "rules": "deo banjskog resorta; method režim nepotvrđen",
+    "link": "https://sisevac.co.rs",
+    "confidence": "unsure"
+  },
+  {
+    "name": "Ribnjak Peca",
+    "city": "Markovac, Mladenovac",
+    "lat": 44.392187,
+    "lon": 20.663812,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "rules": "Method Feeder takmičenja; betonske obale; redovno poribljavan",
+    "contact": "FB: Peca Ribnjak",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Barica",
+    "city": "Inđija (SRC Leje)",
+    "lat": 45.055812,
+    "lon": 20.066437,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "babuška",
+      "bela riba"
+    ],
+    "method": true,
+    "permit": "800 RSD (kod ribočuvara)",
+    "rules": "prvoligaška šaranska takmičenja",
+    "contact": "FB: USR Barica Indjija",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Crni Vir",
+    "city": "Kać (kod Novog Sada)",
+    "lat": 45.2972,
+    "lon": 19.9082,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "tolstolobik",
+      "babuška",
+      "štuka",
+      "smuđ",
+      "linjak",
+      "som"
+    ],
+    "method": true,
+    "rules": "10 šaranskih + 15 rekreativnih mesta; C&R; bivši dunavski rukavac",
+    "contact": "IG: @jezero_crni_vir",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jezero Josyda",
+    "city": "Čelarevo, Bačka Palanka",
+    "lat": 45.257312,
+    "lon": 19.495188,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "rules": "adresa: 7F4W+W3 Čelarevo (plus code) — proveriti tačan pin",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Okno (Fazanerija)",
+    "city": "Ub",
+    "lat": 44.471813,
+    "lon": 20.061187,
+    "approxCoords": false,
+    "species": [
+      "šaran"
+    ],
+    "method": true,
+    "rules": "16 pozicija; struja/svetlo/šator po mestu; method takmičenja",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Grgeč",
+    "city": "Žitište",
+    "lat": 45.482063,
+    "lon": 20.539188,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "štuka",
+      "amur",
+      "babuška"
+    ],
+    "method": true,
+    "rules": "nov ribnjak; ~22 mesta, 7–8 ostrva",
+    "confidence": "single"
+  },
+  {
+    "name": "MN jezero",
+    "city": "Loznica",
+    "lat": 44.533613,
+    "lon": 19.190773,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "bela riba"
+    ],
+    "method": true,
+    "rules": "plovak i feeder dozvoljeni; uhvati-pusti",
+    "contact": "+381 15 879 879",
+    "link": "https://mn.co.rs",
+    "confidence": "unsure"
+  },
+  {
+    "name": "Jezero Kasapska Ada",
+    "city": "Novi Sad (Temerinska petlja)",
+    "lat": 45.31056,
+    "lon": 19.85067,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "som",
+      "štuka",
+      "smuđ",
+      "mrena",
+      "babuška"
+    ],
+    "method": true,
+    "rules": "malo feeder jezero; C&R; 14 pozicija",
+    "contact": "+381 63 761 5172",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jezero Jamura",
+    "city": "Banatsko Karađorđevo (Zrenjanin)",
+    "lat": 45.595437,
+    "lon": 20.566688,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "štuka",
+      "som",
+      "smuđ"
+    ],
+    "method": true,
+    "permit": "1.000 RSD (šaran/amur)",
+    "rules": "max 3 štapa (1 udica); meredov+podloga; rezervacija dan ranije; šaran/linjak C&R",
+    "contact": "+381 61 141 6743",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jezero Čepel (Peskara 1)",
+    "city": "Mužlja, Zrenjanin",
+    "lat": 45.351562,
+    "lon": 20.387813,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "tolstolobik",
+      "som",
+      "štuka",
+      "smuđ",
+      "babuška",
+      "deverika",
+      "linjak"
+    ],
+    "method": true,
+    "rules": "strogi no-kill; 18 FIPSed pozicija; SRK Banat",
+    "confidence": "single"
+  },
+  {
+    "name": "RK Jezero Bački Jarak",
+    "city": "Bački Jarak, Temerin",
+    "lat": 45.373883,
+    "lon": 19.867827,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "štuka",
+      "smuđ"
+    ],
+    "method": true,
+    "rules": "4 štapa OK ali PRIHRANJIVANJE ZABRANJENO (ograničeno za method); riba >3kg C&R; ponedeljak zatvoreno; sezona 1.3–30.11",
+    "contact": "+381 21 848 757",
+    "link": "https://jezerobj.co.rs",
+    "confidence": "verified"
+  },
+  {
+    "name": "Arena Mikan",
+    "city": "Dužine, Plandište",
+    "lat": 45.292687,
+    "lon": 20.998687,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "permit": "~2.000 RSD (kotizacija)",
+    "rules": "namenski Method/Feeder revir; 1 štap/1 udica, udica ≤#8, boila/pelet ≤10mm",
+    "contact": "+381 60 064 1985",
+    "confidence": "single"
+  },
+  {
+    "name": "Ribnjak Bager",
+    "city": "Plandište",
+    "lat": 45.230688,
+    "lon": 21.111313,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur",
+      "štuka",
+      "som",
+      "bela riba"
+    ],
+    "method": true,
+    "permit": "800 RSD (dan; noć uz najavu)",
+    "rules": "max 3 štapa, najlon ≥0.25; dozvoljeno žitarice/pelet(PVA)/kukuruz; zabranjeno živ mamac/pasta/rasuta hrana; šaran/amur trajni C&R",
+    "contact": "+381 60 086-17-18",
+    "link": "https://ribnjakbagerplandiste.com",
+    "confidence": "verified"
+  },
+  {
+    "name": "Jezero Pivnice",
+    "city": "Pivnice, Bačka Palanka",
+    "lat": 45.470813,
+    "lon": 19.442687,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "rules": "feeder dozvoljen; zabranjeni tigar-orasi i spodovi; 12 mesta",
+    "contact": "USR Šaran Pivnice",
+    "confidence": "single"
+  },
+  {
+    "name": "Jezero Stara Ciglana",
+    "city": "Hetin, Žitište",
+    "lat": 45.660187,
+    "lon": 20.785312,
+    "approxCoords": false,
+    "species": [],
+    "method": true,
+    "rules": "podaci u pripremi (samo FB stranica)",
+    "contact": "FB: Jezero Stara Ciglana HETIN",
+    "confidence": "unsure"
+  }
+]

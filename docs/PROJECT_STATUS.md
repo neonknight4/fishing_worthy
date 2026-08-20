@@ -31,6 +31,21 @@
 - **43/44 slike** proizvoda (skinute sa m-fishing og:image).
 - **"Kupi na m-fishing.rs"** link na svakom proizvodu; **safe-case: 404/410 → `/shop/`**.
 
+### Dnevnik: foto + deljenje (2026-08-20)
+- **Više slika odjednom** iz galerije (`pickMultiImage(limit: free)`) — najviše 5 po izlasku;
+  kamera ostaje jedna po jedna. Ako picker ignoriše `limit` (stariji Android), višak se odbaci + snackbar.
+- **Pun ekran** (`lib/widgets/photo_viewer.dart`): swipe kroz slike, pinch i dupli tap zum, brojač.
+- **Deljenje** (`lib/services/share_card.dart`, `share_plus`): kartica = fotografija +
+  traka upečena u piksele (**samo voda + datum** — bez lokacije i ulova, pecaroši ne dele mesto)
+  + `lockup-dark` logo, plus poluprozirni logo u uglu fotografije.
+  Izlaz je **kvadrat 1080×1080** — IG feed pri više slika ionako nametne 1:1, pa mu odmah dajemo
+  1:1 i ništa ne kropuje. Fotografija se **ne reže**: stoji cela (contain, zaobljene ivice),
+  a pozadinu popunjava njena zamućena kopija (`ImageFilter.blur` 26 + crni sloj 30%) — radi isto
+  za portret, pejzaž i panoramu, bez mrtvog praznog prostora.
+  Deljenje više slika: „sve odjednom" (feed/karusel) ili „jednu po jednu" (FB story inače kolažira).
+  Ulaz: ikonica u kartici Dnevnika (sve slike) ili share u pregledaču (tekuća slika).
+  Tekst posta nosi i Play link (`kPlayUrl` — validan posle objave).
+
 ### Osnovna aplikacija (od ranije, i dalje radi)
 - Ocena 0–100 + razlozi, prognoza po intervalima (3h) sa filterom tehnike, zora/sumrak bonus.
 - Offline baza ~795 voda + karta (FlutterMap), radijus filter.

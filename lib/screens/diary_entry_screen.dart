@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
 import '../utils/moon_calc.dart';
 import '../widgets/components.dart';
+import '../widgets/photo_viewer.dart';
 
 class DiaryEntryScreen extends StatefulWidget {
   final DiaryEntry entry;
@@ -103,21 +104,24 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     super.dispose();
   }
 
+  /// Trenutno stanje forme kao [DiaryEntry] (za čuvanje i za deljenje slika).
+  DiaryEntry _draft() => widget.entry.copyWith(
+        date: _date,
+        technique: _tech,
+        bait: _baits.isEmpty ? null : _baits.join(', '),
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        catches: _catches,
+        photos: _photos,
+        airTemp: _air,
+        pressure: _pressure,
+        windSpeed: _wind,
+        moonPhase: _moon,
+        waterTempReal: _waterTemp,
+      );
+
   Future<void> _save() async {
     setState(() => _saving = true);
-    final e = widget.entry.copyWith(
-      date: _date,
-      technique: _tech,
-      bait: _baits.isEmpty ? null : _baits.join(', '),
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      catches: _catches,
-      photos: _photos,
-      airTemp: _air,
-      pressure: _pressure,
-      windSpeed: _wind,
-      moonPhase: _moon,
-      waterTempReal: _waterTemp,
-    );
+    final e = _draft();
     if (widget.isNew) {
       await _service.insert(e);
     } else {
@@ -137,21 +141,53 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   }
 
   Future<void> _addPhoto() async {
-    if (_photos.length >= _maxPhotos) return;
+    final free = _maxPhotos - _photos.length;
+    if (free <= 0) return;
     final src = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SourceSheet(),
+      builder: (_) => _SourceSheet(free: free),
     );
     if (src == null) return;
-    final x = await _picker.pickImage(source: src, maxWidth: 1600, imageQuality: 80);
-    if (x == null) return;
+
+    // Galerija: više slika odjednom, najviše onoliko koliko mesta ima.
+    final List<XFile> picked;
+    if (src == ImageSource.camera) {
+      final x = await _picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+      picked = [?x];
+    } else {
+      picked = await _picker.pickMultiImage(limit: free, maxWidth: 1600, imageQuality: 80);
+    }
+    if (picked.isEmpty) return;
+
     final dir = await getApplicationDocumentsDirectory();
     final photosDir = Directory(p.join(dir.path, 'diary_photos'));
     if (!await photosDir.exists()) await photosDir.create(recursive: true);
-    final dest = p.join(photosDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(x.path)}');
-    await File(x.path).copy(dest);
-    if (mounted) setState(() => _photos.add(dest));
+
+    final added = <String>[];
+    for (final x in picked.take(free)) {
+      final dest = p.join(photosDir.path,
+          '${DateTime.now().microsecondsSinceEpoch}_${p.basename(x.path)}');
+      await File(x.path).copy(dest);
+      added.add(dest);
+    }
+    if (!mounted) return;
+    setState(() => _photos.addAll(added));
+    // Photo picker na starijim Androidima ignoriše `limit` — reci šta je odbačeno.
+    if (picked.length > free) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Dodato $free — više od $_maxPhotos fotografija po izlasku ne ide.')),
+      );
+    }
+  }
+
+  void _openViewer(int i) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhotoViewerScreen(paths: [..._photos], initialIndex: i, entry: _draft()),
+      ),
+    );
   }
 
   void _removePhoto(int i) {
@@ -448,12 +484,15 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               for (int i = 0; i < _photos.length; i++)
                 Stack(
                   children: [
-                    ClipRRect(
+                    GestureDetector(
+                      onTap: () => _openViewer(i),
+                      child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.file(File(_photos[i]), width: 76, height: 76, fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(
                               width: 76, height: 76, color: c.surface3,
                               child: Icon(Icons.broken_image, color: c.faint, size: 24))),
+                    ),
                     ),
                     Positioned(
                       top: 2, right: 2,
@@ -489,8 +528,10 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   }
 }
 
-/// Izbor izvora slike (kamera / galerija).
+/// Izbor izvora slike (kamera / galerija — galerija dozvoljava više odjednom).
 class _SourceSheet extends StatelessWidget {
+  final int free;
+  const _SourceSheet({required this.free});
   @override
   Widget build(BuildContext context) {
     final c = context.c;
@@ -505,7 +546,8 @@ class _SourceSheet extends StatelessWidget {
           AppButton('Kamera', icon: Icons.photo_camera, block: true,
               onTap: () => Navigator.pop(context, ImageSource.camera)),
           const SizedBox(height: 8),
-          AppButton('Galerija', icon: Icons.photo_library_outlined, kind: BtnKind.outline, block: true,
+          AppButton(free > 1 ? 'Galerija (do $free)' : 'Galerija',
+              icon: Icons.photo_library_outlined, kind: BtnKind.outline, block: true,
               onTap: () => Navigator.pop(context, ImageSource.gallery)),
         ],
       ),

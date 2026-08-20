@@ -76,13 +76,14 @@ class _MethodScreenState extends State<MethodScreen> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'rs.fishing.worthy',
+                      userAgentPackageName: 'rs.upecaj.app',
                     ),
                     MarkerLayer(
                       markers: [for (final l in _lakes) _pin(l)],
                     ),
                   ],
                 ),
+                const OsmAttribution(),
                 if (_loading) const Center(child: CircularProgressIndicator()),
                 if (!_loading && _lakes.isEmpty) _emptyOverlay(c),
               ],

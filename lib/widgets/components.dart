@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -660,6 +661,36 @@ class MoonVis extends StatelessWidget {
             color: c.surface3,
             borderRadius: const BorderRadius.horizontal(right: Radius.circular(999)),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────── OSM ATTRIBUTION ───────────────────────────
+/// Obavezna atribucija za OpenStreetMap tile-ove (OSMF tile usage policy).
+/// Stavlja se u Stack preko FlutterMap-a; tap otvara copyright stranicu.
+class OsmAttribution extends StatelessWidget {
+  const OsmAttribution({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Positioned(
+      right: 6,
+      bottom: 6,
+      child: GestureDetector(
+        onTap: () => launchUrl(
+          Uri.parse('https://www.openstreetmap.org/copyright'),
+          mode: LaunchMode.externalApplication,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(AppRadius.s),
+          ),
+          child: Text('© OpenStreetMap',
+              style: context.ui(size: 9.5, weight: FontWeight.w600, color: c.muted)),
         ),
       ),
     );

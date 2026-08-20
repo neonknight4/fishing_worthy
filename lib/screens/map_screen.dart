@@ -205,7 +205,7 @@ class _MapScreenState extends State<MapScreen> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'rs.fishing.worthy',
+                      userAgentPackageName: 'rs.upecaj.app',
                     ),
                     MarkerLayer(
                       markers: [
@@ -229,6 +229,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ],
                 ),
+                const OsmAttribution(),
                 // filter čipovi
                 Positioned(
                   left: 12,

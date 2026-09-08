@@ -37,17 +37,31 @@ def panel(src, box, out, pad=14):
     return canvas.size
 
 
-if __name__ == '__main__':
-    src_path, out_dir = sys.argv[1], sys.argv[2]
-    src = Image.open(src_path).convert('RGB')
-    # Paneli Palomar sekvence u izvornoj slici (1736x906).
-    # Paneli se dodiruju, pa su rezovi zategnuti da ne uvuku susedni crtež.
-    boxes = {
+# Paneli po izvornoj slici. Paneli se dodiruju, pa su rezovi zategnuti da ne
+# uvuku susedni crtež — proveri preview posle svake promene.
+PANELS = {
+    # Palomar: 2x2 raspored (1736x906).
+    'palomar': {
         'palomar-1': (0, 55, 922, 375),
         'palomar-2': (955, 15, 1736, 525),
         'palomar-3': (95, 385, 725, 885),
         'palomar-4': (840, 560, 1736, 840),
-    }
+    },
+    # Hirurški čvor: 4 panela vertikalno, brojevi levo (1199x1312).
+    'surgeon': {
+        'surgeon-1': (100, 40, 1199, 180),
+        'surgeon-2': (100, 270, 1199, 575),
+        'surgeon-3': (100, 605, 1199, 980),
+        'surgeon-4': (100, 1035, 1199, 1270),
+    },
+}
+
+
+if __name__ == '__main__':
+    src_path, out_dir = sys.argv[1], sys.argv[2]
+    which = sys.argv[3] if len(sys.argv) > 3 else 'palomar'
+    src = Image.open(src_path).convert('RGB')
+    boxes = PANELS[which]
     for name, box in boxes.items():
         size = panel(src, box, f'{out_dir}/{name}.png')
         print(f'{name}.png {size[0]}x{size[1]}')

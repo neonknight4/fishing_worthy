@@ -818,7 +818,9 @@ const schoolLessons = <SchoolLesson>[
           mistakes: [
             LessonNote('Ovaj čvor je jedini bez crteža po koraku — „običan '
                 'uzao" se shematski ne čita jasno. Do ilustracije, video '
-                'pokriva taj deo.'),
+                'pokriva taj deo. Ne meša se sa hirurškim čvorom ispod: '
+                'dupla petlja pravi PETLJU na kraju jedne strune, hirurški '
+                'SPAJA dve strune.'),
             LessonNote('Prevelika petlja se zapetljava o hranilicu pri '
                 'zabačaju.'),
           ],
@@ -868,7 +870,38 @@ const schoolLessons = <SchoolLesson>[
         ),
       ),
       LessonSection(
-        title: '4 · Albright — upletenica na šok lider',
+        title: '4 · Hirurški čvor (dupli)',
+        sequence: StepSequence(
+          purpose: 'Najlakše pouzdano spajanje dva najlona približno istog '
+              'preseka. Malo krupniji od uni-na-uni, ali se lakše veže — i '
+              'mokrim rukama na obali.',
+          videoUrl: 'https://www.youtube.com/results?search_query=double+surgeons+knot+fishing',
+          videoLabel: 'Vidi video — Hirurški čvor',
+          steps: [
+            ProcedureStep('Preklopi dva najlona paralelno, tako da se '
+                'poklapaju oko 15 cm.',
+                imageAsset: 'assets/knots/surgeon-1.png'),
+            ProcedureStep('Oba zajedno savij u petlju — kao običan uzao, ali '
+                'sa dve strune u ruci.',
+                imageAsset: 'assets/knots/surgeon-2.png'),
+            ProcedureStep('Provuci oba kraja kroz tu petlju DVA puta. Otud '
+                '„dupli" — jedan prolaz drži znatno manje.',
+                imageAsset: 'assets/knots/surgeon-3.png'),
+            ProcedureStep('Nakvasi i zategni sve četiri strane u isto vreme, '
+                'pa odreži viškove.',
+                imageAsset: 'assets/knots/surgeon-4.png'),
+          ],
+          mistakes: [
+            LessonNote('Zatezanje samo dve strane — čvor legne ukoso i klizi.'),
+            LessonNote('Jedan prolaz kroz petlju umesto dva. To je običan '
+                'uzao i drži mnogo manje.'),
+            LessonNote('Prevelika razlika u presecima — za to ide Albright, '
+                'ne hirurški.'),
+          ],
+        ),
+      ),
+      LessonSection(
+        title: '5 · Albright — upletenica na šok lider',
         sequence: StepSequence(
           purpose: 'Spaja dva najlona RAZLIČITOG preseka. Ravan je i prolazi '
               'kroz vođice — bez njega nema šok lidera.',

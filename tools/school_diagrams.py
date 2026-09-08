@@ -866,7 +866,11 @@ LOOP2LOOP_STEPS = [(f'k{i}', f'Loop-to-loop {i}', _loop2loop(i)) for i in (1, 2,
 # ista topologija koja je pala i kod Palomara. Ide na ilustraciju po koraku
 # (vidi tools/knot_images.py), kao Palomar.
 
-# Uni (na ušicu), Albright i loop-to-loop su prešli na rasterske ilustracije
+# Cela lekcija „Vezivanje udice" je na rasterskim ilustracijama; iz lekcije
+# „Čvorovi" još samo uni-na-uni ide na SVG faze.
+#
+# Uni (na ušicu), knotless, šnelovanje, lopatica, Albright i loop-to-loop
+# su prešli na rasterske ilustracije
 # (assets/knots/), pa se njihove SVG faze više ne emituju. Funkcije su
 # zadržane — ako ilustracija ikad ispadne, vraćanje je jedna linija ovde.
 FAMILIES = [
@@ -877,8 +881,6 @@ FAMILIES = [
     ('Lure', 'kLure', LURES),
     ('Line', 'kLine', LINES),
     ('Layer', 'kLayer', LAYERS),
-    ('TieSnell', 'kStepSnell', SNELL_STEPS),
-    ('TieSpade', 'kStepSpade', SPADE_STEPS),
     ('Uni2Uni', 'kStepUni2uni', UNI2UNI_STEPS),
 ]
 

@@ -2097,14 +2097,15 @@ const schoolLessons = <SchoolLesson>[
           videoUrl: 'https://www.youtube.com/results?search_query=snell+knot',
           videoLabel: 'Vidi video — Snell',
           steps: [
-            ProcedureStep('Provuci strunu kroz ušicu i pusti je da legne uz '
-                'struk udice.', svg: kStepSnellK1),
-            ProcedureStep('Namotaj radni deo preko strune i struka, 6–7 puta '
-                'ka kljunu.', svg: kStepSnellK2),
-            ProcedureStep('Provuci kraj ispod namotaja i izvuci ga na dole, u '
-                'osi struka.', svg: kStepSnellK3),
-            ProcedureStep('Nakvasi i zategni tako da namotaji legnu jedan uz '
-                'drugi.', svg: kStepSnellK4),
+            ProcedureStep('Provuci strunu kroz ušicu i vrati je uz struk — '
+                'nastaje petlja duž struka.',
+                imageAsset: 'assets/knots/snell-1.png'),
+            ProcedureStep('Obmotaj petljom struk i strunu, pet do šest '
+                'namotaja ka ušici.',
+                imageAsset: 'assets/knots/snell-2.png'),
+            ProcedureStep('Nakvasi i zategni povlačenjem glavne strune. '
+                'Namotaji legnu jedan uz drugi, a vuča ide u osi struka.',
+                imageAsset: 'assets/knots/snell-3.png'),
           ],
           mistakes: [
             LessonNote('Namotaji preko bodlje — čvor sedi na krivini i puca '
@@ -2123,14 +2124,14 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Spade end',
           steps: [
             ProcedureStep('Položi strunu uz struk, tako da kraj gleda ka '
-                'lopatici.', svg: kStepSpadeK1),
-            ProcedureStep('Namotaj radni deo oko struka i strune, 7–8 gustih '
-                'namotaja.', svg: kStepSpadeK2),
+                'lopatici.', imageAsset: 'assets/knots/lopatica-1.png'),
+            ProcedureStep('Namotaj radni deo oko struka i strune, šest do '
+                'osam gustih namotaja.', imageAsset: 'assets/knots/lopatica-2.png'),
             ProcedureStep('Provuci kraj ispod svih namotaja i zategni ih ka '
-                'lopatici.', svg: kStepSpadeK3),
+                'lopatici.', imageAsset: 'assets/knots/lopatica-3.png'),
             ProcedureStep('Nakvasi, zategni i proveri da struna izlazi sa '
                 'UNUTRAŠNJE strane struka — inače udica stoji ukoso.',
-                svg: kStepSpadeK4),
+                imageAsset: 'assets/knots/lopatica-4.png'),
           ],
           mistakes: [
             LessonNote('Struna izlazi sa spoljne strane — udica se pri zabodu '

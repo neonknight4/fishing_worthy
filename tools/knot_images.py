@@ -103,6 +103,16 @@ PANELS = {
     # Knotless („dlaka"): kroz ušicu, namotaji nadole, kraj natrag kroz
     # ušicu — tag koji ostaje desno je nit za mamac.
     'knotless': ('rows', 4, 'knotless', 0),
+    # Šnelovanje: 3 panela, čista detekcija.
+    'snell': ('rows', 3, 'snell', 0),
+    # Lopatica: labela „6 x" premošćuje prazninu između panela 2 i 3, pa
+    # auto-detekcija spoji ta dva. Rez na najmanjoj gustini tinte (y=882).
+    'lopatica': {
+        'lopatica-1': (0, 10, 1024, 385),
+        'lopatica-2': (0, 415, 1024, 882),
+        'lopatica-3': (0, 882, 1024, 1170),
+        'lopatica-4': (0, 1228, 1024, 1502),
+    },
 }
 
 

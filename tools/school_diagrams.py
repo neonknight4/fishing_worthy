@@ -674,54 +674,98 @@ def spade(x, y, s=1.0):
     )
 
 
-# ── VEZIVANJE UDICE ────────────────────────────────────────────────────────
-# Ovi se crtaju: namotaj oko struka (ili oko stajaće strune) je dijagonala
-# preko prave linije. Palomar se NE crta — petlja preko udice je prostorna
-# i dva pokušaja su dala nečitljiv crtež.
+# ── VEZIVANJE UDICE, KORAK PO KORAK ───────────────────────────────────────
+# Dijagram po koraku, ne jedan po čvoru — razlika između koraka (koliko je
+# namotaja, gde je kraj) je baš ono što uči. Namotaji se crtaju kao dijagonale
+# preko struka, što se čita odmah; petlja preko udice (Palomar) se NE crta.
 
-# KNOTLESS (no-knot) — kroz ušicu, namotaji nadole, kraj NATRAG kroz ušicu.
-# Prepoznatljivo po povratku kroz ušicu — zato je taj potez pun, ne tanak.
-TIE_KNOTLESS = wrap2(
-    hook(46, 32)
-    + line('M46 12V25')
-    + wraps(46, 46, 6)
-    + line('M46 90V104', w=1.8)
-    # povratak kroz ušicu spolja — to je poenta čvora
-    + line('M46 104q20 -6 17 -38q-2 -28 -14 -34', w=2)
-    + pull(46, 16, -90, ln=10)
-)
+def _tie_knotless(stage):
+    """Knotless: kroz ušicu → namotaji nadole → kraj NATRAG kroz ušicu."""
+    body = hook(46, 32) + line('M46 12V25')
+    if stage == 1:
+        # struna legla uz struk, nit za mamac ostavljena
+        body += tag('M53 30V96') + pull(46, 16, -90, ln=10)
+    elif stage == 2:
+        body += wraps(46, 43, 3, dy=5.0) + tag('M53 66V96')
+    elif stage == 3:
+        body += wraps(46, 42, 6, dy=4.2) + line('M46 70V100', w=1.8)
+        # kraj se vraća kroz ušicu spolja — poenta čvora
+        body += line('M46 102q20 -6 17 -38q-2 -28 -14 -34', w=2)
+        body += pull(66, 78, -60, ln=9)
+    else:
+        body += wraps(46, 42, 6, dy=4.2)
+        body += line('M46 92q18 -6 15 -36q-2 -26 -13 -32', w=2)
+        body += f'<circle cx="61" cy="88" r="5" fill="{INK}" fill-opacity="0.5"/>'
+        body += pull(46, 16, -90, ln=10)
+    return wrap2(body)
 
-# ŠNELOVANJE (snell) — struna leži uz struk, namotaji preko nje, izlaz u osi.
-TIE_SNELL = wrap2(
-    hook(46, 32)
-    + line('M46 12V25')
-    + tag('M52 28V76')
-    + wraps(46, 44, 6)
-    + line('M46 86V104')
-    + pull(46, 16, -90, ln=10)
-    + pull(46, 112, 90, ln=10)
-)
 
-# LOPATICA (spade end) — bez ušice; namotaji jedini drže strunu uz struk.
-TIE_SPADE = wrap2(
-    spade(46, 28)
-    + line('M46 8V24')
-    + tag('M52 30V72')
-    + wraps(46, 42, 7)
-    + line('M46 88V104')
-    + pull(46, 12, -90, ln=10)
-)
+def _tie_snell(stage):
+    """Šnelovanje: struna uz struk → namotaji preko nje → izlaz u osi."""
+    body = hook(46, 32) + line('M46 12V25')
+    if stage == 1:
+        body += tag('M52 28V92') + pull(46, 16, -90, ln=10)
+    elif stage == 2:
+        body += tag('M52 28V92') + wraps(46, 43, 3, dy=5.0)
+    elif stage == 3:
+        body += wraps(46, 42, 6, dy=4.2) + line('M46 70V104') + pull(46, 112, 90, ln=9)
+    else:
+        body += wraps(46, 42, 6, dy=4.2) + line('M46 70V104')
+        body += pull(46, 16, -90, ln=10) + pull(46, 112, 90, ln=10)
+    return wrap2(body)
 
-# UNI / GRINNER — namotaji oko STAJAĆE strune iznad ušice, ne oko struka.
-TIE_UNI = wrap2(
-    hook(46, 74)
-    # stajaća struna nadole do ušice
-    + line('M46 8V67')
-    # kraj se vraća nagore i namotava oko oba
-    + tag('M46 62q14 -4 14 -18V22')
-    + wraps(53, 26, 5, dy=6.5, w=9)
-    + pull(46, 12, -90, ln=10)
-)
+
+def _tie_spade(stage):
+    """Lopatica: bez ušice — namotaji su jedino što drži strunu uz struk."""
+    body = spade(46, 28) + line('M46 8V24')
+    if stage == 1:
+        body += tag('M52 30V92') + pull(46, 12, -90, ln=10)
+    elif stage == 2:
+        body += tag('M52 30V92') + wraps(46, 40, 4, dy=5.0)
+    elif stage == 3:
+        body += wraps(46, 39, 7, dy=3.8) + line('M46 68V104') + pull(46, 112, 90, ln=9)
+    else:
+        # zategnuto: struna izlazi sa UNUTRAŠNJE strane struka
+        body += wraps(46, 39, 7, dy=3.8) + line('M46 68V104')
+        body += arrow(60, 96, 200, ln=9, op=0.8)
+        body += pull(46, 12, -90, ln=10)
+    return wrap2(body)
+
+
+def _tie_uni(stage):
+    """Uni: kraj kroz ušicu, pa petlja i namotaji oko OBA najlona iznad ušice.
+    Ušica stoji nisko da čvor ima mesta gore, gde se i pravi."""
+    base = hook(46, 96, s=0.75) + line('M46 8V89')
+    if stage == 1:
+        # kraj provučen kroz ušicu i ostavljen slobodan
+        return wrap2(base + tag('M46 92q18 -4 20 -20') + pull(46, 12, -90, ln=10))
+    if stage == 2:
+        # kraj vraćen nagore, formira petlju uz stajaću strunu
+        return wrap2(base
+                     + tag('M46 92q20 -6 20 -26V34q0 -10 -10 -10')
+                     + arrow(70, 40, 180, ln=9, op=0.65))
+    if stage == 3:
+        # namotaji UNUTAR petlje, oko oba najlona
+        return wrap2(base
+                     + tag('M46 92q20 -6 20 -26V36')
+                     + wraps(53, 30, 5, dy=6.0, w=9))
+    # zategnuto pa privučeno do ušice
+    return wrap2(base
+                 + wraps(46, 66, 5, dy=4.6, w=7)
+                 + tag('M53 64l13-9')
+                 + pull(46, 12, -90, ln=10))
+
+
+KNOTLESS_STEPS = [(f'k{i}', f'Knotless {i}', _tie_knotless(i)) for i in (1, 2, 3, 4)]
+SNELL_STEPS = [(f'k{i}', f'Šnelovanje {i}', _tie_snell(i)) for i in (1, 2, 3, 4)]
+SPADE_STEPS = [(f'k{i}', f'Lopatica {i}', _tie_spade(i)) for i in (1, 2, 3, 4)]
+UNI_STEPS = [(f'k{i}', f'Uni {i}', _tie_uni(i)) for i in (1, 2, 3, 4)]
+
+# Zbirni crteži (za comparator i preglede) = zadnja faza.
+TIE_KNOTLESS = _tie_knotless(4)
+TIE_SNELL = _tie_snell(4)
+TIE_SPADE = _tie_spade(4)
+TIE_UNI = _tie_uni(4)
 
 TIES = [
     ('uni', 'Uni / grinner', TIE_UNI),
@@ -730,6 +774,97 @@ TIES = [
     ('spade', 'Lopatica (bez ušice)', TIE_SPADE),
 ]
 
+
+
+# ── ČVOROVI ZA SPAJANJE NAJLONA, korak po korak ───────────────────────────
+# Vertikalna postavka: jedan najlon dolazi odozgo, drugi ide nadole. Namotaji
+# su i ovde dijagonale preko linije. Gde struna ide ISPOD druge, njen segment
+# se ne crta (prekid) — tako se preklapanje čita bez pozadinske boje.
+
+def _uloop(x, y_top, y_bot, w=11):
+    """Petlja u obliku U: dva kraka i zaobljeni vrh na dnu."""
+    return (f'<path d="M{x - w} {y_top}V{y_bot - w}'
+            f'a{w} {w} 0 0 0 {2 * w} 0V{y_top}" stroke-width="2.4"/>')
+
+
+def _albright(stage):
+    """Albright: petlja u DEBLJEM najlonu, tanji se namota oko nje."""
+    # debljи najlon dolazi odozgo i savija se u petlju
+    thick = f'<path d="M35 10V70a11 11 0 0 0 22 0V16" stroke-width="3.2"/>'
+    if stage == 1:
+        return wrap2(thick + tag('M84 30q-20 4 -30 14') + pull(84, 26, 200, ln=9))
+    if stage == 2:
+        return wrap2(thick + tag('M84 30q-24 4 -38 10V96'))
+    if stage == 3:
+        return wrap2(thick + tag('M84 30q-24 4 -38 10')
+                     + tag('M46 40V96')
+                     + wraps(46, 26, 8, dy=4.4, w=13))
+    if stage == 4:
+        return wrap2(thick
+                     + wraps(46, 26, 8, dy=4.4, w=13)
+                     + tag('M46 62V96')
+                     + tag('M60 24q16 0 20 8')
+                     + arrow(78, 26, 200, ln=9, op=0.8))
+    return wrap2(f'<path d="M35 10V52a11 11 0 0 0 22 0V16" stroke-width="3.2"/>'
+                 + wraps(46, 22, 7, dy=4.2, w=12)
+                 + tag('M46 54V96')
+                 + pull(46, 12, -90, ln=10) + pull(46, 104, 90, ln=10))
+
+
+def _uni2uni(stage):
+    """Uni-na-uni: dva najlona paralelno, po jedan uni čvor sa svake strane."""
+    a = '<path d="M38 10V78" stroke-width="2.6"/>'   # gornji najlon
+    b = '<path d="M54 46V140" stroke-width="2.6"/>'  # donji najlon
+    if stage == 1:
+        return wrap2(a + b + tag('M38 78q8 6 16 4') + tag('M54 46q-8 -6 -16 -4'))
+    if stage == 2:
+        return wrap2(a + b + wraps(46, 54, 5, dy=5.4, w=10)
+                     + tag('M38 78q10 4 18 0'))
+    if stage == 3:
+        return wrap2(a + b + wraps(46, 54, 5, dy=5.4, w=10)
+                     + wraps(46, 92, 5, dy=5.4, w=10))
+    return wrap2('<path d="M46 10V60" stroke-width="2.6"/>'
+                 + '<path d="M46 84V140" stroke-width="2.6"/>'
+                 + wraps(46, 62, 4, dy=5.0, w=9)
+                 + wraps(46, 74, 4, dy=5.0, w=9)
+                 + pull(46, 14, -90, ln=10) + pull(46, 132, 90, ln=10))
+
+
+def _loop2loop(stage):
+    """Loop-to-loop: petlja kroz petlju, pa ceo predvez kroz svoju petlju."""
+    top = '<path d="M46 6V40" stroke-width="2.6"/>' + _uloop(46, 40, 66)
+    if stage == 1:
+        # dve petlje jedna prema drugoj
+        return wrap2(top
+                     + '<path d="M46 142V116" stroke-width="2.6"/>'
+                     + f'<path d="M35 116V96a11 11 0 0 1 22 0v20" stroke-width="2.4"/>')
+    if stage == 2:
+        # donja petlja provučena kroz gornju — prekid gde ide ispod
+        return wrap2(top
+                     + '<path d="M46 142V104" stroke-width="2.6"/>'
+                     + '<path d="M35 104V74" stroke-width="2.4"/>'
+                     + '<path d="M57 104V74" stroke-width="2.4"/>'
+                     + '<path d="M35 74a11 11 0 0 1 22 0" stroke-width="2.4" stroke-dasharray="3 3"/>'
+                     + arrow(74, 70, 200, ln=10, op=0.8))
+    # zategnuto: dva spojena prstena
+    return wrap2('<path d="M46 8V34" stroke-width="2.6"/>'
+                 + '<ellipse cx="46" cy="52" rx="10" ry="18" stroke-width="2.4"/>'
+                 + '<path d="M46 96V140" stroke-width="2.6"/>'
+                 + '<ellipse cx="46" cy="78" rx="10" ry="18" stroke-width="2.4"/>'
+                 + f'<path d="M36 66h20" stroke-width="2.4" stroke-opacity="0.25"/>'
+                 + pull(46, 14, -90, ln=9) + pull(46, 132, 90, ln=9))
+
+
+ALBRIGHT_STEPS = [(f'k{i}', f'Albright {i}', _albright(i)) for i in (1, 2, 3, 4, 5)]
+UNI2UNI_STEPS = [(f'k{i}', f'Uni-na-uni {i}', _uni2uni(i)) for i in (1, 2, 3, 4)]
+LOOP2LOOP_STEPS = [(f'k{i}', f'Loop-to-loop {i}', _loop2loop(i)) for i in (1, 2, 3)]
+
+
+
+# ⚠ DUPLA PETLJA (surgeon's loop) NIJE nacrtana. Pokušano 2026-09-08: koraci
+# "običan uzao" i "provuci petlju drugi put" izlaze kao balon, ne kao uzao —
+# ista topologija koja je pala i kod Palomara. Ide na ilustraciju po koraku
+# (vidi tools/knot_images.py), kao Palomar.
 
 FAMILIES = [
     ('Feeder', 'kFeeder', FEEDERS),
@@ -740,6 +875,13 @@ FAMILIES = [
     ('Line', 'kLine', LINES),
     ('Layer', 'kLayer', LAYERS),
     ('Tie', 'kTie', TIES),
+    ('TieKnotless', 'kStepKnotless', KNOTLESS_STEPS),
+    ('TieSnell', 'kStepSnell', SNELL_STEPS),
+    ('TieSpade', 'kStepSpade', SPADE_STEPS),
+    ('TieUni', 'kStepUni', UNI_STEPS),
+    ('Albright', 'kStepAlbright', ALBRIGHT_STEPS),
+    ('Uni2Uni', 'kStepUni2uni', UNI2UNI_STEPS),
+    ('Loop2Loop', 'kStepLoop2loop', LOOP2LOOP_STEPS),
 ]
 
 

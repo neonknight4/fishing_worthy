@@ -816,6 +816,9 @@ const schoolLessons = <SchoolLesson>[
           videoUrl: 'https://www.youtube.com/results?search_query=surgeons+loop+knot',
           videoLabel: 'Vidi video — Dupla petlja',
           mistakes: [
+            LessonNote('Ovaj čvor je jedini bez crteža po koraku — „običan '
+                'uzao" se shematski ne čita jasno. Do ilustracije, video '
+                'pokriva taj deo.'),
             LessonNote('Prevelika petlja se zapetljava o hranilicu pri '
                 'zabačaju.'),
           ],
@@ -827,10 +830,12 @@ const schoolLessons = <SchoolLesson>[
           purpose: 'Spaja predvez i glavnu strunu. Jedina veza koju menjaš u '
               'sekundi na vodi, mokrim rukama.',
           steps: [
-            ProcedureStep('Provuci petlju predveza kroz petlju glavne strune.'),
-            ProcedureStep('Provuci ceo predvez (sa udicom) kroz svoju petlju.'),
+            ProcedureStep('Provuci petlju predveza kroz petlju glavne strune.',
+                svg: kStepLoop2loopK1),
+            ProcedureStep('Provuci ceo predvez (sa udicom) kroz svoju petlju.',
+                svg: kStepLoop2loopK2),
             ProcedureStep('Zategni obe strane. Veza legne kao dva spojena '
-                'prstena, bez preklapanja.'),
+                'prstena, bez preklapanja.', svg: kStepLoop2loopK3),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=loop+to+loop+connection+fishing',
           videoLabel: 'Vidi video — Loop-to-loop',
@@ -850,12 +855,13 @@ const schoolLessons = <SchoolLesson>[
           strength: 'do 90%',
           steps: [
             ProcedureStep.ok('Preklopi dva najlona tako da se paralelno '
-                'poklapaju oko 15 cm.'),
+                'poklapaju oko 15 cm.', svg: kStepUni2uniK1),
             ProcedureStep.ok('Prvim najlonom napravi uni čvor oko drugog — '
-                'pet namotaja unutar petlje.'),
-            ProcedureStep.ok('Ponovi isto drugim najlonom oko prvog.'),
+                'pet namotaja unutar petlje.', svg: kStepUni2uniK2),
+            ProcedureStep.ok('Ponovi isto drugim najlonom oko prvog.',
+                svg: kStepUni2uniK3),
             ProcedureStep.ok('Nakvasi, zategni svaki čvor pojedinačno, pa '
-                'povuci oba najlona da se čvorovi spoje.'),
+                'povuci oba najlona da se čvorovi spoje.', svg: kStepUni2uniK4),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=uni+to+uni+knot',
           videoLabel: 'Vidi video — Uni-na-uni',
@@ -868,13 +874,16 @@ const schoolLessons = <SchoolLesson>[
               'kroz vođice — bez njega nema šok lidera.',
           strength: '~90%',
           steps: [
-            ProcedureStep.ok('Napravi petlju u debljem najlonu.'),
-            ProcedureStep.ok('Provuci kraj tanjeg najlona kroz tu petlju.'),
+            ProcedureStep.ok('Napravi petlju u debljem najlonu.',
+                svg: kStepAlbrightK1),
+            ProcedureStep.ok('Provuci kraj tanjeg najlona kroz tu petlju.',
+                svg: kStepAlbrightK2),
             ProcedureStep.ok('Obmotaj tanjim deset puta, počevši od baze '
-                'petlje ka njenom vrhu.'),
+                'petlje ka njenom vrhu.', svg: kStepAlbrightK3),
             ProcedureStep.ok('Vrati kraj tanjeg natrag kroz petlju, na istu '
-                'stranu na koju je i ušao.'),
-            ProcedureStep.ok('Zategni suprotne krajeve i odreži oba viška.'),
+                'stranu na koju je i ušao.', svg: kStepAlbrightK4),
+            ProcedureStep.ok('Zategni suprotne krajeve i odreži oba viška.',
+                svg: kStepAlbrightK5),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=albright+knot',
           videoLabel: 'Vidi video — Albright',
@@ -1989,13 +1998,13 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Uni',
           steps: [
             ProcedureStep.ok('Provuci kraj kroz ušicu i ostavi 10–15 cm.',
-                svg: kTieUni),
+                svg: kStepUniK1),
             ProcedureStep.ok('Vrati kraj ka ušici i napravi petlju uz stajaću '
-                'strunu.', svg: kTieUni),
+                'strunu.', svg: kStepUniK2),
             ProcedureStep.ok('Radeći UNUTAR petlje, obmotaj kraj oko oba '
-                'najlona pet puta.', svg: kTieUni),
+                'najlona pet puta.', svg: kStepUniK3),
             ProcedureStep.ok('Nakvasi, zategni da se petlja skupi, pa je '
-                'privuci do ušice.', svg: kTieUni),
+                'privuci do ušice.', svg: kStepUniK4),
           ],
           mistakes: [
             LessonNote('Manje od pet namotaja — čvor klizi, posebno na '
@@ -2018,13 +2027,13 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Knotless',
           steps: [
             ProcedureStep('Provuci predvez kroz ušicu odozgo i ostavi dužinu '
-                'niti koliko ti treba za mamac.', svg: kTieKnotless),
+                'niti koliko ti treba za mamac.', svg: kStepKnotlessK1),
             ProcedureStep('Namotaj predvez oko struka udice 7–8 puta nadole, '
-                'gusto i bez preklapanja.', svg: kTieKnotless),
+                'gusto i bez preklapanja.', svg: kStepKnotlessK2),
             ProcedureStep('Provuci kraj NATRAG kroz ušicu, ali sa spoljne '
-                'strane — to je poenta čvora.', svg: kTieKnotless),
+                'strane — to je poenta čvora.', svg: kStepKnotlessK3),
             ProcedureStep('Nakvasi i zategni. Nit sa mamcem mora da izlazi '
-                'ispod ušice, ne sa strane.', svg: kTieKnotless),
+                'ispod ušice, ne sa strane.', svg: kStepKnotlessK4),
           ],
           mistakes: [
             LessonNote('Kraj provučen u istom smeru kao na početku — čvor se '
@@ -2047,13 +2056,13 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Snell',
           steps: [
             ProcedureStep('Provuci strunu kroz ušicu i pusti je da legne uz '
-                'struk udice.', svg: kTieSnell),
+                'struk udice.', svg: kStepSnellK1),
             ProcedureStep('Namotaj radni deo preko strune i struka, 6–7 puta '
-                'ka kljunu.', svg: kTieSnell),
+                'ka kljunu.', svg: kStepSnellK2),
             ProcedureStep('Provuci kraj ispod namotaja i izvuci ga na dole, u '
-                'osi struka.', svg: kTieSnell),
+                'osi struka.', svg: kStepSnellK3),
             ProcedureStep('Nakvasi i zategni tako da namotaji legnu jedan uz '
-                'drugi.', svg: kTieSnell),
+                'drugi.', svg: kStepSnellK4),
           ],
           mistakes: [
             LessonNote('Namotaji preko bodlje — čvor sedi na krivini i puca '
@@ -2072,14 +2081,14 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Spade end',
           steps: [
             ProcedureStep('Položi strunu uz struk, tako da kraj gleda ka '
-                'lopatici.', svg: kTieSpade),
+                'lopatici.', svg: kStepSpadeK1),
             ProcedureStep('Namotaj radni deo oko struka i strune, 7–8 gustih '
-                'namotaja.', svg: kTieSpade),
+                'namotaja.', svg: kStepSpadeK2),
             ProcedureStep('Provuci kraj ispod svih namotaja i zategni ih ka '
-                'lopatici.', svg: kTieSpade),
+                'lopatici.', svg: kStepSpadeK3),
             ProcedureStep('Nakvasi, zategni i proveri da struna izlazi sa '
                 'UNUTRAŠNJE strane struka — inače udica stoji ukoso.',
-                svg: kTieSpade),
+                svg: kStepSpadeK4),
           ],
           mistakes: [
             LessonNote('Struna izlazi sa spoljne strane — udica se pri zabodu '

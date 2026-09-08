@@ -2381,3 +2381,12 @@ const schoolLessons = <SchoolLesson>[
     ],
   ),
 ];
+
+/// Lekcija po `id`-ju — Result ekran linkuje na pun postupak umesto da ga
+/// prepisuje. Vraća `null` ako id ne postoji (npr. lekcija preimenovana).
+SchoolLesson? lessonById(String id) {
+  for (final l in schoolLessons) {
+    if (l.id == id) return l;
+  }
+  return null;
+}

@@ -78,6 +78,7 @@ flutter:
     - assets/icons/
     - assets/data/
     - assets/bait/
+    - assets/knots/
     - assets/brand/
     - assets/catalog/
 

@@ -1,5 +1,12 @@
 # Method tab — plan i ideje
 
+> **ODLUKA 2026-09-08: Method tab je ukinut.** Mapa komercijalnih revira je
+> spojena sa glavnom Mapom (čip filter „Method"; reviri stoje i na „Sve"), a
+> škola je dobila svoj tab (`lib/screens/school_screen.dart`,
+> sadržaj u `lib/data/school_lessons.dart`). Sekcije 2, 3 i 6 ovog dokumenta
+> su ušle u lekcije; sekcije 4 i 5 su i dalje otvorene.
+> Bottom-nav: Početna · Mapa · Škola · Traper · Dnevnik.
+
 > Radni plan za Method tab. Datum: 2026-07-27.
 > Vezano: `docs/PROJECT_STATUS.md`, memory `future-commercial-lakes`, `docs/research/2026-06-25-bait-research.md`.
 

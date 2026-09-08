@@ -276,6 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_error != null) _buildError(),
           if (_cacheStamp != null && !_loading) _buildStaleBanner(),
           Expanded(child: _loading ? _buildLoading() : _buildBody()),
+          if (!_loading && _forecasts.isNotEmpty && _selectedLocation != null)
+            _buildPinnedCta(),
         ],
       ),
     );
@@ -666,14 +668,27 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 28),
-          AppButton('Proveri stanje za pecanje',
-              icon: Icons.phishing,
-              large: true,
-              block: true,
-              onTap: _waterLevelLoading ? null : _openResult),
+          const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  /// CTA je prikovan iznad donje navigacije — bio je na dnu skrola, pa se do
+  /// glavne akcije moralo skrolovati kroz alate i obližnje vode.
+  Widget _buildPinnedCta() {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+      decoration: BoxDecoration(
+        color: c.bg,
+        border: Border(top: BorderSide(color: c.line)),
+      ),
+      child: AppButton('Proveri stanje za pecanje',
+          icon: Icons.phishing,
+          large: true,
+          block: true,
+          onTap: _waterLevelLoading ? null : _openResult),
     );
   }
 

@@ -15,6 +15,38 @@ from PIL import Image
 MAX_SIDE = 820  # line art se ne gleda veće; drži PNG male
 
 
+def auto_rows(src, expected, gap=14, step=3):
+    """Nalazi panele u slici složenoj vertikalno, po prazninama u tinti.
+
+    Ručno pogađanje koordinata je već jednom odsekло dno crteža (dupla petlja,
+    panel 4). Ovo meri gde tinta zaista počinje i staje, pa reza nema šanse da
+    promaši. `step` preskače piksele po x — detekcija ne traži tačnost.
+    """
+    g = src.convert('L')
+    w, h = g.size
+    px = g.load()
+    ink = []
+    for y in range(h):
+        for x in range(0, w, step):
+            if px[x, y] < 128:
+                ink.append(y)
+                break
+    if not ink:
+        raise SystemExit('nema tinte u slici')
+    bands = []
+    start = prev = ink[0]
+    for y in ink[1:]:
+        if y - prev > gap:
+            bands.append((start, prev))
+            start = y
+        prev = y
+    bands.append((start, prev))
+    if len(bands) != expected:
+        raise SystemExit(
+            f'nadjeno {len(bands)} panela, ocekivano {expected}: {bands}')
+    return bands
+
+
 def panel(src, box, out, pad=14):
     im = src.crop(box).convert('L')
     # luminancija -> alfa: belo (255) prozirno, crno (0) puno
@@ -47,20 +79,10 @@ PANELS = {
         'palomar-3': (95, 385, 725, 885),
         'palomar-4': (840, 560, 1736, 840),
     },
-    # Dupla petlja (surgeon's loop): 4 panela vertikalno (1000x1573).
-    'surgeon-loop': {
-        'surgeonloop-1': (0, 15, 1000, 400),
-        'surgeonloop-2': (0, 460, 1000, 855),
-        'surgeonloop-3': (0, 900, 1000, 1225),
-        'surgeonloop-4': (0, 1280, 1000, 1490),
-    },
-    # Hirurški čvor: 4 panela vertikalno, brojevi levo (1199x1312).
-    'surgeon': {
-        'surgeon-1': (100, 40, 1199, 180),
-        'surgeon-2': (100, 270, 1199, 575),
-        'surgeon-3': (100, 605, 1199, 980),
-        'surgeon-4': (100, 1035, 1199, 1270),
-    },
+    # Vertikalno složene sekvence — paneli se nalaze automatski.
+    # ('rows', broj_panela, prefiks, x_od) — x_od odseca brojeve koraka levo.
+    'surgeon-loop': ('rows', 4, 'surgeonloop', 0),
+    'surgeon': ('rows', 4, 'surgeon', 100),
 }
 
 
@@ -68,7 +90,14 @@ if __name__ == '__main__':
     src_path, out_dir = sys.argv[1], sys.argv[2]
     which = sys.argv[3] if len(sys.argv) > 3 else 'palomar'
     src = Image.open(src_path).convert('RGB')
-    boxes = PANELS[which]
+    spec = PANELS[which]
+    if isinstance(spec, tuple):
+        _, n, prefix, x0 = spec
+        bands = auto_rows(src, n)
+        boxes = {f'{prefix}-{i}': (x0, a - 4, src.width, b + 4)
+                 for i, (a, b) in enumerate(bands, 1)}
+    else:
+        boxes = spec
     for name, box in boxes.items():
         size = panel(src, box, f'{out_dir}/{name}.png')
         print(f'{name}.png {size[0]}x{size[1]}')

@@ -1,0 +1,105 @@
+EKSTERNI IZVORI PODATAKA — Upecaj! (fishing_worthy)
+Stanje: 2026-09-07, grana feature/traper-bait-recommender
+
+===========================================================
+1. USLOVI NA VODI (vodostaj / protok / temperatura vode)
+===========================================================
+
+1.1  RHMZ — Osmotreno stanje voda (TEMPERATURA VODE)
+     URL:    https://www.hidmet.gov.rs/ciril/osmotreni/stanje_voda.php
+     Tip:    HTML scraping (nema JSON API)
+     Kod:    lib/services/rhmz_service.dart  -> _fetchTemps() / _parseTemps()
+     Koristi: result_screen.dart:90  RhmzService.nearestWaterTemp()
+     Daje:   realna temperatura vode po hidrološkoj stanici (hm_id)
+     Keš:    30 min u memoriji (statički)
+     Radijus: najbliža stanica do 70 km
+     Napomene:
+       - stanice se mapiraju na koordinate iz assets/data/rhmz_stations.json
+         (generisano sa tools/build_stations.py, geokodirano preko Open-Meteo)
+       - RHMZ servira nepotpun TLS lanac -> badCertificateCallback samo za
+         host www.hidmet.gov.rs
+       - u parsiranju: &nbsp; se čisti, zarez -> tačka; kolona temperature je
+         ćelija pre POSLEDNJE 'tendencije/' ikone u redu
+
+1.2  RHMZ — Prognoza vodostaja (VODOSTAJ + TREND)
+     URL:    https://www.hidmet.gov.rs/ciril/prognoza/prognoza_voda.php
+             (latinična varijanta: /latin/prognoza/prognoza_voda.php — isti sadržaj)
+     Tip:    HTML scraping
+     Kod:    lib/services/rhmz_service.dart  -> _fetchLevels() / _parseLevels()
+     Koristi: result_screen.dart:106  RhmzService.levelForecastsWithin()
+     Daje:   vodostaj danas (cm) + prognoza za 4 dana, po stanici;
+             izračunat trend raste/pada/stabilan (prag ±5 cm)
+     Keš:    60 min
+     Radijus: 60 km, jedna (najbliža) stanica po reci
+     Ažuriranje izvora: svakodnevno u 12h
+
+1.3  Open-Meteo Flood API (PROTOK REKE)
+     URL:    https://flood-api.open-meteo.com/v1/flood
+     Tip:    JSON REST, besplatno, bez ključa
+     Kod:    lib/services/water_service.dart -> fetchWaterLevelForecast()
+     Param:  daily=river_discharge, past_days=3, forecast_days=7
+     Daje:   dnevni protok (m3/s) — GloFAS model, koristi se za trend
+             (largeRise/slightRise/stable/slightFall/largeFall, pragovi ±5%/±30%)
+     Napomena: modelirani podatak, ne merenje; pokriva i male reke gde RHMZ
+               nema stanicu
+
+===========================================================
+2. VREMENSKE PRILIKE
+===========================================================
+
+2.1  Open-Meteo Forecast API
+     URL:    https://api.open-meteo.com/v1/forecast
+     Tip:    JSON REST, besplatno, bez ključa
+     Kod:    lib/services/weather_service.dart
+     Param:  hourly=temperature_2m,precipitation,cloudcover,windspeed_10m,
+                    winddirection_10m,pressure_msl,weathercode
+             forecast_days=7, timezone=auto, windspeed_unit=kmh
+     Takođe: fetchDay() sa start_date/end_date — za retroaktivan unos u dnevnik
+
+===========================================================
+3. LOKACIJA / GEOKODIRANJE / MAPE
+===========================================================
+
+3.1  Open-Meteo Geocoding API
+     URL:    https://geocoding-api.open-meteo.com/v1/search
+     Kod:    lib/services/location_service.dart -> searchLocation()
+             tools/build_stations.py (offline, za koordinate RHMZ stanica)
+     Filter: country_code == 'RS', max 8 rezultata
+
+3.2  Nominatim (OpenStreetMap) — reverse geocoding
+     URL:    https://nominatim.openstreetmap.org/reverse
+     Kod:    lib/services/location_service.dart -> _reverseGeocode()
+     Header: User-Agent: FishingWorthy/1.0 (obavezno po Nominatim politici)
+     Napomena: Nominatim usage policy = max 1 req/s, obavezan UA
+
+3.3  OpenStreetMap tile server
+     URL:    https://tile.openstreetmap.org/{z}/{x}/{y}.png
+     Kod:    lib/screens/map_screen.dart:207, lib/screens/method_screen.dart:78
+     Atribucija: https://www.openstreetmap.org/copyright (prikazana u aplikaciji)
+
+3.4  Geolocator (GPS uređaja)
+     Nije mrežni API — plugin geolocator ^13.0.2
+
+===========================================================
+4. OFFLINE (NE ZOVU SE U RUNTIME-u)
+===========================================================
+
+4.1  Overpass API (OpenStreetMap)
+     Korišćen JEDNOM, offline, za generisanje data_raw/rivers.json i
+     data_raw/water.json -> tools/build_waters.py ->
+     assets/data/serbia_waters.json
+     Aplikacija NE zove Overpass u runtime-u — vode se čitaju iz bundle-a.
+
+4.2  m-fishing.rs
+     Samo deep-linkovi ka proizvodima u Traper preporučivaču
+     (lib/data/*), nema API poziva.
+
+===========================================================
+SAŽETAK — šta zapravo daje "uslove na vodi"
+===========================================================
+  temperatura vode  -> RHMZ stanje_voda.php        (mereno)
+  vodostaj + trend  -> RHMZ prognoza_voda.php      (mereno + prognoza, velike reke)
+  protok + trend    -> Open-Meteo Flood API        (model, svuda)
+  vazduh/pritisak   -> Open-Meteo Forecast API
+
+Nijedan izvor ne zahteva API ključ niti registraciju.

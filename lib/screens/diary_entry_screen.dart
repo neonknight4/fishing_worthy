@@ -236,6 +236,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 ),
                 const SizedBox(height: 14),
                 _textField('Beleške', _notes, 'Komentar dana…', lines: 4),
+                const SizedBox(height: 14),
+                _privacyNote(),
               ],
             ),
           ),
@@ -521,6 +523,48 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                   ),
                 ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.lock_outline, size: 13, color: c.faint),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Slike ostaju na ovom telefonu — ne šalju se nigde.',
+                  style: context.ui(size: 11, weight: FontWeight.w500, color: c.faint, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dnevnik je 100% lokalan: baza je sqflite fajl na uređaju, slike se
+  /// kopiraju u privatni folder aplikacije. Nema naloga, nema sinhronizacije.
+  Widget _privacyNote() {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.surface3,
+        borderRadius: BorderRadius.circular(AppRadius.s),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.phonelink_lock_outlined, size: 16, color: c.muted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Ovaj unos — slike, lokacija i ulov — čuva se samo na tvom telefonu. '
+              'Nema naloga ni sinhronizacije, drugi korisnici ga ne vide. '
+              'Odlazi dalje jedino ako ga ti sam podeliš dugmetom „Podeli".',
+              style: context.ui(size: 11.5, weight: FontWeight.w500, color: c.muted, height: 1.4),
+            ),
           ),
         ],
       ),

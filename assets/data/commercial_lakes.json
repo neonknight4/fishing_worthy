@@ -1,6 +1,6 @@
 [
   {
-    "name": "Mika Alas (Veliko Blato)",
+    "name": "Mika Alas — Veliko jezero",
     "city": "Krnjača/Borča, Beograd",
     "lat": 44.870563,
     "lon": 20.488563,
@@ -17,6 +17,40 @@
     "contact": "+381 63 631389",
     "link": "https://velikoblato.rs",
     "confidence": "single"
+  },
+  {
+    "name": "Mika Alas — Malo jezero",
+    "city": "Krnjača/Borča, Beograd",
+    "lat": 44.872581,
+    "lon": 20.487914,
+    "approxCoords": false,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "hours": "~09–21h, noćni ribolov",
+    "rules": "Malo jezero, severno u kompleksu ribnjaka RM „Mika Alas“",
+    "contact": "+381 63 631389",
+    "link": "https://velikoblato.rs",
+    "confidence": "unsure"
+  },
+  {
+    "name": "Mika Alas — Method jezero",
+    "city": "Krnjača/Borča, Beograd",
+    "lat": 44.8721,
+    "lon": 20.4924,
+    "approxCoords": true,
+    "species": [
+      "šaran",
+      "amur"
+    ],
+    "method": true,
+    "hours": "~09–21h, noćni ribolov",
+    "rules": "Method jezero, istočno od malog; lokacija nepotvrđena",
+    "contact": "+381 63 631389",
+    "link": "https://velikoblato.rs",
+    "confidence": "unsure"
   },
   {
     "name": "Aqua Dreams Samaila",

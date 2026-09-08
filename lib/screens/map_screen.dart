@@ -357,6 +357,20 @@ class _MapScreenState extends State<MapScreen> {
             AppButton('Zabeleži ulov ovde',
                 icon: Icons.menu_book_outlined, kind: BtnKind.outline, block: true,
                 onTap: _choosing ? null : () => _logAt(p)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_outline, size: 13, color: c.faint),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Tvoja mesta ostaju na telefonu — drugi ih ne vide.',
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.faint, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

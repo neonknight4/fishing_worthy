@@ -37,7 +37,18 @@ const fishingClosedSeasons = [
   ClosedSeason(species: 'Skobalj', fromMonth: 4, fromDay: 15, toMonth: 5, toDay: 31, minSizeCm: 20),
   ClosedSeason(species: 'Bucov', fromMonth: 4, fromDay: 15, toMonth: 6, toDay: 15, minSizeCm: 30),
   ClosedSeason(species: 'Som', fromMonth: 5, fromDay: 1, toMonth: 6, toDay: 15, minSizeCm: 60),
+  // Salmonidne vrste — varaličarske/mušičarske vode
+  ClosedSeason(species: 'Mladica', fromMonth: 3, fromDay: 1, toMonth: 8, toDay: 31, minSizeCm: 100),
+  ClosedSeason(species: 'Lipljen', fromMonth: 3, fromDay: 1, toMonth: 5, toDay: 31, minSizeCm: 30),
+  ClosedSeason(species: 'Potočna pastrmka', fromMonth: 10, fromDay: 1, toMonth: 3, toDay: 1, minSizeCm: 25),
+  ClosedSeason(species: 'Ohridska pastrmka', fromMonth: 10, fromDay: 1, toMonth: 3, toDay: 1, minSizeCm: 40),
 ];
+
+/// Noćna zabrana ribolova na salmonidne vrste (mladica, sve pastrmke, lipljen).
+/// Letnje računanje vremena 21–03, zimsko 18–05.
+const salmonidNightBan = 'Salmonidi: zabranjen ribolov 21–03 (letnje) / 18–05 (zimsko vreme)';
+
+const salmonidSpecies = ['Mladica', 'Lipljen', 'Potočna pastrmka', 'Ohridska pastrmka'];
 
 // Minimum sizes only (no closed season)
 const minSizeOnly = [
@@ -71,7 +82,7 @@ const noRestrictions = [
   'Američki somić', 'Tolstolobik', 'Amur', 'Bas', 'Babuška', 'Sunčica', 'Američki rak',
 ];
 
-// ── Per-fish regulations (only species we have icons for) ────────────────────
+// ── Per-fish regulations (bez ikone → emoji fallback u RegulationsScreen) ────
 
 class FishReg {
   final String name;
@@ -115,6 +126,11 @@ const iconFishRegulations = [
   FishReg(name: 'Plotica', fromMonth: 4, fromDay: 15, toMonth: 5, toDay: 31, minSizeCm: 20),
   FishReg(name: 'Deverika', fromMonth: 4, fromDay: 15, toMonth: 5, toDay: 31, minSizeCm: 20),
   FishReg(name: 'Bucov', fromMonth: 4, fromDay: 15, toMonth: 6, toDay: 15, minSizeCm: 30),
+  FishReg(name: 'Mladica', fromMonth: 3, fromDay: 1, toMonth: 8, toDay: 31, minSizeCm: 100, note: salmonidNightBan),
+  FishReg(name: 'Lipljen', fromMonth: 3, fromDay: 1, toMonth: 5, toDay: 31, minSizeCm: 30, note: salmonidNightBan),
+  FishReg(name: 'Potočna pastrmka', fromMonth: 10, fromDay: 1, toMonth: 3, toDay: 1, minSizeCm: 25, note: salmonidNightBan),
+  FishReg(name: 'Ohridska pastrmka', fromMonth: 10, fromDay: 1, toMonth: 3, toDay: 1, minSizeCm: 40, note: salmonidNightBan),
+  FishReg(name: 'Grgeč / Bandar', minSizeCm: 10, note: 'Bez lovostaja'),
   FishReg(name: 'Amur', note: 'Bez lovostaja'),
   FishReg(name: 'Bodorka', note: 'Bez lovostaja'),
   FishReg(name: 'Tolstolobik', note: 'Bez lovostaja'),

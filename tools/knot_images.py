@@ -41,10 +41,13 @@ def auto_rows(src, expected, gap=14, step=3):
             start = y
         prev = y
     bands.append((start, prev))
-    if len(bands) != expected:
+    # Odbaci šum (jedan red piksela na ivici screenshot-a i sl.)
+    bands = [(a, b) for a, b in bands if b - a >= 8]
+    # Naslov slike je uvek prvi band, paneli idu posle — uzmi poslednjih n.
+    if len(bands) < expected:
         raise SystemExit(
-            f'nadjeno {len(bands)} panela, ocekivano {expected}: {bands}')
-    return bands
+            f'nadjeno {len(bands)} bandova, treba {expected}: {bands}')
+    return bands[-expected:]
 
 
 def panel(src, box, out, pad=14):
@@ -83,6 +86,23 @@ PANELS = {
     # ('rows', broj_panela, prefiks, x_od) — x_od odseca brojeve koraka levo.
     'surgeon-loop': ('rows', 4, 'surgeonloop', 0),
     'surgeon': ('rows', 4, 'surgeon', 100),
+    # Slike u boji (plava + bela sa crnim obrisom). Luminancija -> alfa čuva
+    # razliku: plava ostaje poluispunjena, bela postaje šuplji obris.
+    'albright': ('rows', 5, 'albright', 0),
+    'loop2loop': ('rows', 4, 'loop2loop', 0),
+    'uniknot': ('rows', 4, 'uniknot', 0),
+    # Uni na pravoj udici, bez engleskih labela. Paneli 2 i 3 se dodiruju bez
+    # praznine, pa auto-detekcija ne pomaže — rez je na najmanjoj gustini
+    # tinte (y=586), izmerenoj, ne pogođenoj.
+    'uni-hook': {
+        'unihook-1': (0, 40, 1536, 292),
+        'unihook-2': (0, 312, 1536, 586),
+        'unihook-3': (0, 586, 1536, 764),
+        'unihook-4': (0, 810, 1536, 992),
+    },
+    # Knotless („dlaka"): kroz ušicu, namotaji nadole, kraj natrag kroz
+    # ušicu — tag koji ostaje desno je nit za mamac.
+    'knotless': ('rows', 4, 'knotless', 0),
 }
 
 

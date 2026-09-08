@@ -839,11 +839,14 @@ const schoolLessons = <SchoolLesson>[
               'sekundi na vodi, mokrim rukama.',
           steps: [
             ProcedureStep('Provuci petlju predveza kroz petlju glavne strune.',
-                svg: kStepLoop2loopK1),
-            ProcedureStep('Provuci ceo predvez (sa udicom) kroz svoju petlju.',
-                svg: kStepLoop2loopK2),
+                imageAsset: 'assets/knots/loop2loop-1.png'),
+            ProcedureStep('Provuci ceo predvez, sa udicom, kroz svoju petlju.',
+                imageAsset: 'assets/knots/loop2loop-2.png'),
+            ProcedureStep('Privuci obe petlje jednu ka drugoj da se uhvate.',
+                imageAsset: 'assets/knots/loop2loop-3.png'),
             ProcedureStep('Zategni obe strane. Veza legne kao dva spojena '
-                'prstena, bez preklapanja.', svg: kStepLoop2loopK3),
+                'prstena — nikad u „krst".',
+                imageAsset: 'assets/knots/loop2loop-4.png'),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=loop+to+loop+connection+fishing',
           videoLabel: 'Vidi video — Loop-to-loop',
@@ -914,15 +917,15 @@ const schoolLessons = <SchoolLesson>[
           strength: '~90%',
           steps: [
             ProcedureStep.ok('Napravi petlju u debljem najlonu.',
-                svg: kStepAlbrightK1),
+                imageAsset: 'assets/knots/albright-1.png'),
             ProcedureStep.ok('Provuci kraj tanjeg najlona kroz tu petlju.',
-                svg: kStepAlbrightK2),
+                imageAsset: 'assets/knots/albright-2.png'),
             ProcedureStep.ok('Obmotaj tanjim deset puta, počevši od baze '
-                'petlje ka njenom vrhu.', svg: kStepAlbrightK3),
+                'petlje ka njenom vrhu.', imageAsset: 'assets/knots/albright-3.png'),
             ProcedureStep.ok('Vrati kraj tanjeg natrag kroz petlju, na istu '
-                'stranu na koju je i ušao.', svg: kStepAlbrightK4),
+                'stranu na koju je i ušao.', imageAsset: 'assets/knots/albright-4.png'),
             ProcedureStep.ok('Zategni suprotne krajeve i odreži oba viška.',
-                svg: kStepAlbrightK5),
+                imageAsset: 'assets/knots/albright-5.png'),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=albright+knot',
           videoLabel: 'Vidi video — Albright',
@@ -2037,13 +2040,13 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Uni',
           steps: [
             ProcedureStep.ok('Provuci kraj kroz ušicu i ostavi 10–15 cm.',
-                svg: kStepUniK1),
+                imageAsset: 'assets/knots/unihook-1.png'),
             ProcedureStep.ok('Vrati kraj ka ušici i napravi petlju uz stajaću '
-                'strunu.', svg: kStepUniK2),
+                'strunu.', imageAsset: 'assets/knots/unihook-2.png'),
             ProcedureStep.ok('Radeći UNUTAR petlje, obmotaj kraj oko oba '
-                'najlona pet puta.', svg: kStepUniK3),
+                'najlona pet do šest puta.', imageAsset: 'assets/knots/unihook-3.png'),
             ProcedureStep.ok('Nakvasi, zategni da se petlja skupi, pa je '
-                'privuci do ušice.', svg: kStepUniK4),
+                'privuci do ušice.', imageAsset: 'assets/knots/unihook-4.png'),
           ],
           mistakes: [
             LessonNote('Manje od pet namotaja — čvor klizi, posebno na '
@@ -2066,13 +2069,13 @@ const schoolLessons = <SchoolLesson>[
           videoLabel: 'Vidi video — Knotless',
           steps: [
             ProcedureStep('Provuci predvez kroz ušicu odozgo i ostavi dužinu '
-                'niti koliko ti treba za mamac.', svg: kStepKnotlessK1),
+                'niti koliko ti treba za mamac.', imageAsset: 'assets/knots/knotless-1.png'),
             ProcedureStep('Namotaj predvez oko struka udice 7–8 puta nadole, '
-                'gusto i bez preklapanja.', svg: kStepKnotlessK2),
+                'gusto i bez preklapanja.', imageAsset: 'assets/knots/knotless-2.png'),
             ProcedureStep('Provuci kraj NATRAG kroz ušicu, ali sa spoljne '
-                'strane — to je poenta čvora.', svg: kStepKnotlessK3),
+                'strane — to je poenta čvora.', imageAsset: 'assets/knots/knotless-3.png'),
             ProcedureStep('Nakvasi i zategni. Nit sa mamcem mora da izlazi '
-                'ispod ušice, ne sa strane.', svg: kStepKnotlessK4),
+                'ispod ušice, ne sa strane.', imageAsset: 'assets/knots/knotless-4.png'),
           ],
           mistakes: [
             LessonNote('Kraj provučen u istom smeru kao na početku — čvor se '

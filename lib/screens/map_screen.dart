@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../data/fishing_seasons.dart';
+import '../models/commercial_lake.dart';
 import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
 import '../models/weather_data.dart';
+import '../services/commercial_lakes_service.dart';
 import '../services/diary_service.dart';
 import '../services/location_service.dart';
 import '../services/water_service.dart';
@@ -39,8 +42,10 @@ class _MapScreenState extends State<MapScreen> {
   final _weatherService = WeatherService();
   final _locationService = LocationService();
   final _diaryService = DiaryService();
+  final _lakesService = CommercialLakesService();
   final _mapController = MapController();
   List<WaterBody> _waters = [];
+  List<CommercialLake> _lakes = []; // komercijalni method reviri (cela Srbija)
   List<DiaryEntry> _catches = []; // zabeleženi ulovi sa koordinatama
   WaterBody? _selected;
   LatLng? _customPoint; // korisnikova izabrana tačka (long-press)
@@ -48,11 +53,21 @@ class _MapScreenState extends State<MapScreen> {
   bool _loading = true;
   bool _choosing = false;
   bool _showCatches = false;
-  String _filter = 'sve'; // 'sve' | 'reka' | 'jezero'
+  String _filter = 'sve'; // 'sve' | 'reka' | 'jezero' | 'method'
 
-  List<WaterBody> get _filtered => _filter == 'sve'
-      ? _waters
-      : _waters.where((w) => _filter == 'reka' ? w.type == 'river' : w.type != 'river').toList();
+  // Centar Srbije — na „Method" kamera se odmiče da uhvati sve revire.
+  static final _serbiaCenter = LatLng(44.1, 20.8);
+
+  List<WaterBody> get _filtered => switch (_filter) {
+        'sve' => _waters,
+        'reka' => _waters.where((w) => w.type == 'river').toList(),
+        'jezero' => _waters.where((w) => w.type != 'river').toList(),
+        _ => const <WaterBody>[], // 'method' — samo reviri na mapi
+      };
+
+  /// Reviri stoje na celokupnoj mapi (uz reke i jezera) dok se ne filtrira
+  /// na reke/jezera; „Method" ih ostavlja same.
+  bool get _showLakes => _filter == 'sve' || _filter == 'method';
 
   @override
   void initState() {
@@ -111,7 +126,30 @@ class _MapScreenState extends State<MapScreen> {
     final list = await _waterService
         .fetchNearbyWaterBodies(widget.latitude, widget.longitude, radiusKm: 50)
         .catchError((_) => <WaterBody>[]);
-    if (mounted) setState(() { _waters = list; _loading = false; });
+    final lakes = await _lakesService.load().catchError((_) => <CommercialLake>[]);
+    if (mounted) setState(() { _waters = list; _lakes = lakes; _loading = false; });
+  }
+
+  /// Promena filtera. „Method" odmiče kameru na celu Srbiju (reviri su rasuti
+  /// po zemlji, a mapa startuje zumirana na korisnikov kraj); „Sve" je vraća.
+  void _setFilter(String f) {
+    if (f == _filter) return;
+    setState(() { _filter = f; _selected = null; _customPoint = null; });
+    if (f == 'method') {
+      _mapController.move(_serbiaCenter, 6.6);
+    } else if (f == 'sve') {
+      _mapController.move(LatLng(widget.latitude, widget.longitude), 11);
+    }
+  }
+
+  /// Detalj revira u bottom sheet-u.
+  void _openLake(CommercialLake l) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _LakeSheet(lake: l),
+    );
   }
 
   /// Korisnik dugim pritiskom bira proizvoljnu tačku na vodi.
@@ -186,7 +224,11 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           PageHeader(
             title: 'Mapa voda',
-            subtitle: _loading ? widget.locationName : '${_filtered.length} voda u krugu 50 km',
+            subtitle: _loading
+                ? widget.locationName
+                : _filter == 'method'
+                    ? '${_lakes.length} komercijalnih revira'
+                    : '${_filtered.length} voda u krugu 50 km',
             showBack: widget.showBack,
           ),
           Expanded(
@@ -205,7 +247,7 @@ class _MapScreenState extends State<MapScreen> {
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'rs.fishing.worthy',
+                      userAgentPackageName: 'rs.upecaj.app',
                     ),
                     MarkerLayer(
                       markers: [
@@ -216,6 +258,8 @@ class _MapScreenState extends State<MapScreen> {
                           child: Icon(Icons.my_location, color: context.c.coral, size: 28),
                         ),
                         for (final w in _filtered) _waterMarker(w),
+                        if (_showLakes)
+                          for (final l in _lakes) _lakeMarker(l),
                         if (_showCatches)
                           for (final e in _catches) _catchMarker(e),
                         if (_customPoint != null)
@@ -229,6 +273,7 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                   ],
                 ),
+                const OsmAttribution(),
                 // filter čipovi
                 Positioned(
                   left: 12,
@@ -236,15 +281,31 @@ class _MapScreenState extends State<MapScreen> {
                   top: 12,
                   child: Row(
                     children: [
-                      for (final f in const [('sve', 'Sve'), ('reka', 'Reke'), ('jezero', 'Jezera')])
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => setState(() { _filter = f.$1; _selected = null; }),
-                            child: AppChip(f.$2, tone: _filter == f.$1 ? ChipTone.green : ChipTone.neutral),
+                      // Četiri filtera + Ulovi ne staju na uži ekran — filteri skroluju.
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final f in const [
+                                ('sve', 'Sve'),
+                                ('reka', 'Reke'),
+                                ('jezero', 'Jezera'),
+                                ('method', 'Method'),
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () => _setFilter(f.$1),
+                                    child: AppChip(f.$2,
+                                        tone: _filter == f.$1 ? ChipTone.green : ChipTone.neutral),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      const Spacer(),
+                      ),
+                      const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => setState(() => _showCatches = !_showCatches),
                         child: AppChip('🎣 Ulovi ${_catches.isEmpty ? '' : '(${_catches.length})'}',
@@ -356,6 +417,20 @@ class _MapScreenState extends State<MapScreen> {
             AppButton('Zabeleži ulov ovde',
                 icon: Icons.menu_book_outlined, kind: BtnKind.outline, block: true,
                 onTap: _choosing ? null : () => _logAt(p)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_outline, size: 13, color: c.faint),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Tvoja mesta ostaju na telefonu — drugi ih ne vide.',
+                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.faint, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -381,6 +456,29 @@ class _MapScreenState extends State<MapScreen> {
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
           ),
           child: Icon(isRiver ? Icons.waves : Icons.water, color: Colors.white, size: selected ? 20 : 15),
+        ),
+      ),
+    );
+  }
+
+  /// Pin komercijalnog revira. Zelen = method dozvoljen, koralna = nije.
+  Marker _lakeMarker(CommercialLake l) {
+    final c = context.c;
+    final col = l.method ? c.green : c.coral;
+    return Marker(
+      point: LatLng(l.lat, l.lon),
+      width: 34,
+      height: 34,
+      child: GestureDetector(
+        onTap: () => _openLake(l),
+        child: Container(
+          decoration: BoxDecoration(
+            color: col,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4)],
+          ),
+          child: Icon(l.method ? Icons.set_meal : Icons.block, color: Colors.white, size: 17),
         ),
       ),
     );
@@ -460,6 +558,189 @@ class _MapScreenState extends State<MapScreen> {
                 icon: Icons.check, block: true, onTap: _choosing ? null : () => _chooseWater(w)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Detalj komercijalnog revira. Prenet sa nekadašnjeg Method taba (mapa revira
+/// je spojena sa glavnom mapom), uz „Proveri stanje" — isti skor engine kao
+/// za ostale vode.
+class _LakeSheet extends StatefulWidget {
+  final CommercialLake lake;
+  const _LakeSheet({required this.lake});
+
+  @override
+  State<_LakeSheet> createState() => _LakeSheetState();
+}
+
+class _LakeSheetState extends State<_LakeSheet> {
+  bool _busy = false;
+
+  /// Skor + uslovi za koordinate revira. Reviri su stajaće vode → vodostaj
+  /// (protok) ne ulazi u ocenu.
+  Future<void> _check() async {
+    final lake = widget.lake;
+    final nav = Navigator.of(context);
+    setState(() => _busy = true);
+    try {
+      final f = await WeatherService().fetchForecast(lake.lat, lake.lon);
+      if (f.isEmpty) {
+        if (mounted) setState(() => _busy = false);
+        return;
+      }
+      final score = FishingScore.calculate(f.first);
+      if (!mounted) return;
+      nav.pop();
+      nav.push(MaterialPageRoute(
+        builder: (_) => ResultScreen(
+          score: score,
+          location: LocationInfo(name: lake.name, latitude: lake.lat, longitude: lake.lon),
+          selectedWaterBody: WaterBody(
+            name: lake.name,
+            type: 'lake',
+            distanceKm: 0,
+            latitude: lake.lat,
+            longitude: lake.lon,
+          ),
+        ),
+      ));
+    } catch (_) {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// Zabeleži izlazak na ovaj revir u dnevnik — povuče današnje uslove
+  /// za koordinate revira, pa otvori editor unosa.
+  Future<void> _logTrip() async {
+    final lake = widget.lake;
+    final nav = Navigator.of(context);
+    setState(() => _busy = true);
+    double? air, pressure, wind;
+    try {
+      final f = await WeatherService().fetchForecast(lake.lat, lake.lon);
+      if (f.isNotEmpty) {
+        air = f.first.avgTemperature;
+        pressure = f.first.avgPressure;
+        wind = f.first.avgWindSpeed;
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    final now = DateTime.now();
+    final entry = DiaryEntry(
+      date: now,
+      location: lake.city,
+      water: lake.name,
+      lat: lake.lat,
+      lon: lake.lon,
+      airTemp: air,
+      pressure: pressure,
+      windSpeed: wind,
+      moonPhase: MoonCalc.phase(now),
+      technique: 'Method',
+    );
+    nav.pop(); // zatvori sheet
+    nav.push(MaterialPageRoute(builder: (_) => DiaryEntryScreen(entry: entry, isNew: true)));
+  }
+
+  Future<void> _openContact(String v) async {
+    Uri? uri;
+    if (v.startsWith('http')) {
+      uri = Uri.parse(v);
+    } else if (RegExp(r'[0-9]').hasMatch(v)) {
+      uri = Uri.parse('tel:${v.replaceAll(RegExp(r'[^0-9+]'), '')}');
+    }
+    if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final lake = widget.lake;
+    // Pravila revira su slobodan tekst i mogu biti dugačka — telo skroluje,
+    // akcije ostaju prikovane u podnožju.
+    return AppSheet(
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppButton(
+            _busy ? 'Učitavam…' : 'Proveri stanje ovde',
+            icon: Icons.assessment_outlined,
+            block: true,
+            onTap: _busy ? null : _check,
+          ),
+          const SizedBox(height: 8),
+          AppButton(
+            'Zabeleži izlazak',
+            icon: Icons.menu_book_outlined,
+            kind: BtnKind.outline,
+            block: true,
+            onTap: _busy ? null : _logTrip,
+          ),
+          if (lake.contact != null) ...[
+            const SizedBox(height: 8),
+            AppButton('Kontakt', icon: Icons.call, kind: BtnKind.outline, block: true,
+                onTap: () => _openContact(lake.contact!)),
+          ] else if (lake.link != null) ...[
+            const SizedBox(height: 8),
+            AppButton('Otvori', icon: Icons.open_in_new, kind: BtnKind.outline, block: true,
+                onTap: () => _openContact(lake.link!)),
+          ],
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(lake.name, style: context.display(size: 19)),
+                    Text(lake.city, style: context.ui(size: 12.5, weight: FontWeight.w600, color: c.muted)),
+                  ],
+                ),
+              ),
+              AppChip(
+                lake.method ? 'Method OK' : 'Bez method-a',
+                tone: lake.method ? ChipTone.green : ChipTone.warn,
+                small: true,
+              ),
+            ],
+          ),
+          if (lake.species.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final s in lake.species) AppChip(s, tone: ChipTone.neutral, small: true)],
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (lake.permit != null) _row(context, Icons.confirmation_number_outlined, 'Dozvola', lake.permit!),
+          if (lake.hours != null) _row(context, Icons.schedule, 'Radno vreme', lake.hours!),
+          if (lake.rules != null) _row(context, Icons.rule, 'Pravila', lake.rules!),
+          if (lake.approxCoords) _row(context, Icons.location_searching, 'Lokacija', 'Približna — proveriti'),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(BuildContext context, IconData icon, String label, String value) {
+    final c = context.c;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 17, color: c.water),
+          const SizedBox(width: 10),
+          Text('$label: ', style: context.ui(size: 12.5, weight: FontWeight.w700, color: c.muted)),
+          Expanded(child: Text(value, style: context.ui(size: 12.5, weight: FontWeight.w600))),
+        ],
       ),
     );
   }

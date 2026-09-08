@@ -1,0 +1,5 @@
+# Kopiraj u android/key.properties i popuni. NE ide u git.
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=/home/mihailo-jankovic/upecaj-upload.jks

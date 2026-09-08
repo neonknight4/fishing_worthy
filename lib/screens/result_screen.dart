@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
 import '../data/fishing_seasons.dart';
+import '../data/school_lessons.dart';
 import '../logic/bait_advisor.dart';
 import '../logic/bait_recommender.dart';
+import '../logic/float_advisor.dart';
+import '../logic/lure_advisor.dart';
 import '../logic/technique_advisor.dart';
 import '../data/traper_combos.dart';
 import '../models/bait_product.dart';
 import '../models/water_combo.dart';
 import '../models/feeder_plan.dart';
+import '../models/float_plan.dart';
+import '../models/lure_plan.dart';
 import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
 import '../models/technique_score.dart';
 import '../models/weather_data.dart';
+import '../services/shop_link.dart';
 import '../services/favorites_service.dart';
 import '../services/rhmz_service.dart';
 import 'diary_entry_screen.dart';
+import 'regulations_screen.dart';
+import 'school_screen.dart';
 import '../utils/fish_icons.dart';
 import '../utils/moon_calc.dart';
 import '../utils/sun_calc.dart';
@@ -76,31 +82,23 @@ class _ResultScreenState extends State<ResultScreen> {
   bool _isFavorite = false;
   WaterTempReading? _waterTemp;
   List<LevelForecastReading> _levelForecasts = [];
-  late FishingScore _score;
-  TechniqueType _intervalTech = TechniqueType.feeder;
+  /// Izabrana tehnika — vodi i skor u heru i sve preporuke ispod njega.
+  TechniqueType _technique = TechniqueType.feeder;
+
+  /// Pod-režim plovkarenja. Otpuštanje ima smisla samo na rekama.
+  FloatMode _floatMode = FloatMode.standard;
 
   @override
   void initState() {
     super.initState();
-    _score = widget.score;
     _favService.isFavorite(_favLoc).then((v) {
       if (mounted) setState(() => _isFavorite = v);
     });
     _rhmzService
         .nearestWaterTemp(widget.location.latitude, widget.location.longitude)
         .then((r) {
-      if (!mounted) return;
-      setState(() {
-        _waterTemp = r;
-        // Recompute headline score with the real water temperature.
-        if (r != null) {
-          _score = FishingScore.calculate(
-            widget.score.forecast,
-            waterLevel: widget.waterLevel,
-            waterTempOverride: r.tempC,
-          );
-        }
-      });
+      // Prava temp. vode ulazi u sve tehničke skorove kroz rebuild.
+      if (mounted) setState(() => _waterTemp = r);
     }).catchError((_) {});
     _rhmzService
         .levelForecastsWithin(widget.location.latitude, widget.location.longitude)
@@ -136,16 +134,22 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final score = _score;
     final location = widget.location;
     final waterLevel = widget.waterLevel;
     final selectedWaterBody = widget.selectedWaterBody;
 
-    final f = score.forecast;
+    final f = widget.score.forecast;
     final now = DateTime.now();
-    final techniques = TechniqueAdvisor.advise(f, waterLevel, selectedWaterBody, now);
-    final seasonal = TechniqueAdvisor.seasonalFish(now);
-    final feederRig = TechniqueAdvisor.feederRigRecommendation(waterLevel, selectedWaterBody, f.avgWindSpeed);
+    final waterTempC = _waterTemp?.tempC ?? f.estimatedWaterTemperature;
+    final trottingOk = FloatAdvisor.trottingApplies(selectedWaterBody);
+    final floatMode = trottingOk ? _floatMode : FloatMode.standard;
+    final techniques = TechniqueAdvisor.advise(f, waterLevel, selectedWaterBody, now,
+        waterTempC: waterTempC, floatTrotting: floatMode == FloatMode.trotting);
+    // Skor i razlozi u heru pripadaju IZABRANOJ tehnici, ne opštoj oceni.
+    final active = techniques.firstWhere((t) => t.type == _technique);
+    // Aktivne vrste prate izabrani tab — na varalicu idu grabljivice.
+    final seasonal = TechniqueAdvisor.seasonalFish(now,
+        type: _technique, floatTrotting: floatMode == FloatMode.trotting);
     final sunrise = SunCalc.sunriseTime(location.latitude, location.longitude, f.date);
     final sunset = SunCalc.sunsetTime(location.latitude, location.longitude, f.date);
     final moonPhaseVal = MoonCalc.phase(f.date);
@@ -163,13 +167,31 @@ class _ResultScreenState extends State<ResultScreen> {
       waterTempC: _waterTemp?.tempC ?? f.estimatedWaterTemperature,
       turbidity: f.turbidity,
       waterBody: selectedWaterBody,
-      targetSpecies: _activeSpeciesTag(seasonal),
+      targetSpecies: _activeSpeciesTag(
+          TechniqueAdvisor.seasonalFish(now, type: TechniqueType.feeder)),
       discharge: waterLevel?.currentDischarge,
     );
     // Hibrid: ekspertski kurirani recept ako voda ima combo za tekuću sezonu;
     // inače (775 nepokrivenih voda) fallback na algoritamski baitCombo.
     final curatedCombo = comboFor(selectedWaterBody?.name, seasonForMonth(now.month));
-    final fishActivity = _activityFromScore(score.score);
+    final fishActivity = _activityFromScore(active.score);
+    final lurePlan = LureAdvisor.plan(
+      waterTempC: waterTempC,
+      turbidity: f.turbidity,
+      windSpeed: f.avgWindSpeed,
+      month: now.month,
+      waterLevel: waterLevel,
+      waterBody: selectedWaterBody,
+    );
+    final floatPlan = FloatAdvisor.plan(
+      waterTempC: waterTempC,
+      turbidity: f.turbidity,
+      windSpeed: f.avgWindSpeed,
+      month: now.month,
+      mode: floatMode,
+      waterLevel: waterLevel,
+      waterBody: selectedWaterBody,
+    );
 
     final c = context.c;
     return Scaffold(
@@ -197,20 +219,25 @@ class _ResultScreenState extends State<ResultScreen> {
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 40),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                _TechniqueTabs(
+                  techniques: techniques,
+                  selected: _technique,
+                  onChanged: (t) => setState(() => _technique = t),
+                ),
+                const SizedBox(height: 12),
                 _ScoreHero(
-                  score: score,
+                  value: active.score,
+                  techniqueName: active.name,
                   waterName: selectedWaterBody?.name ?? location.name,
                   place: selectedWaterBody != null ? location.name : null,
                   sunrise: _fmtTime(sunrise),
                   sunset: _fmtTime(sunset),
                 ),
-                if (protectedArea != null) ...[
+                // Lovostaj i zaštićeno područje su upozorenje pa ostaju vidljivi
+                // — ali kao jedan red, ne dve pune kartice. Detalji su u Propisima.
+                if (protectedArea != null || closedNow.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _ProtectedAreaCard(area: protectedArea),
-                ],
-                if (closedNow.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _ClosedSeasonsCard(seasons: closedNow),
+                  _RegsWarnRow(area: protectedArea, closed: closedNow),
                 ],
                 const SectionHeader('Uslovi'),
                 GridView.count(
@@ -219,7 +246,8 @@ class _ResultScreenState extends State<ResultScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 0.92,
+                  // Niži odnos = viša ćelija; labela u dva reda ne prelije.
+                  childAspectRatio: 0.80,
                   children: [
                     ConditionTile(
                       icon: Icons.thermostat,
@@ -261,20 +289,13 @@ class _ResultScreenState extends State<ResultScreen> {
                     ),
                   ],
                 ),
-                if (score.positives.isNotEmpty || score.negatives.isNotEmpty) ...[
-                  const SectionHeader('Zašto ovaj skor'),
+                if (active.positives.isNotEmpty || active.negatives.isNotEmpty) ...[
+                  SectionHeader('Zašto ovaj skor — ${active.name.toLowerCase()}'),
                   FactorList([
-                    for (final p in score.positives) FactorItem(positive: true, title: p),
-                    for (final n in score.negatives) FactorItem(positive: false, title: n),
+                    for (final p in active.positives) FactorItem(positive: true, title: p),
+                    for (final n in active.negatives) FactorItem(positive: false, title: n),
                   ]),
                 ],
-                const SizedBox(height: 16),
-                _PressureTrendCard(
-                  category: f.pressureTrendCategory,
-                  trendPer3h: f.pressureTrendPer3h,
-                ),
-                const SizedBox(height: 10),
-                _MoonSolunarCard(phase: moonPhaseVal, windows: solunarWindows),
                 // Vodostaj nema smisla za stajaće vode (jezera/bare) — samo reke.
                 if (selectedWaterBody?.type != 'lake' &&
                     (waterLevel != null || _levelForecasts.isNotEmpty)) ...[
@@ -297,40 +318,61 @@ class _ResultScreenState extends State<ResultScreen> {
                         )),
                   ],
                 ],
-                const SectionHeader('Prognoza po intervalima'),
-                _TechniqueFilter(
-                  selected: _intervalTech,
-                  onChanged: (t) => setState(() => _intervalTech = t),
-                ),
-                const SizedBox(height: 10),
-                _ThreeHourSlots(
+                const SizedBox(height: 16),
+                Collapsible(
+                  title: 'Prognoza po intervalima — ${active.name.toLowerCase()}',
+                  child: _ThreeHourSlots(
                   forecast: f,
                   waterLevel: waterLevel,
                   solunarWindows: solunarWindows,
-                  technique: _intervalTech,
+                  technique: _technique,
+                  floatTrotting: floatMode == FloatMode.trotting,
                   waterBody: selectedWaterBody,
                   waterTemp: _waterTemp?.tempC,
-                  sunrise: sunrise,
-                  sunset: sunset,
+                    sunrise: sunrise,
+                    sunset: sunset,
+                  ),
                 ),
-                const SectionHeader('Tehnike za danas'),
-                _TechniqueSection(techniques: techniques, feederRig: feederRig),
-                SectionHeader(selectedWaterBody?.type == 'lake'
-                    ? 'Method plan za danas'
-                    : 'Feeder plan za danas'),
-                _FeederPlanCard(
-                  plan: feederPlan,
-                  realTemp: _waterTemp != null,
+                const SizedBox(height: 10),
+                Collapsible(
+                  title: 'Mesec i solunar',
+                  child: _MoonSolunarCard(phase: moonPhaseVal, windows: solunarWindows),
                 ),
-                if (curatedCombo != null) ...[
-                  const SectionHeader('Traper kombinacija'),
-                  _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
-                ] else if (baitCombo != null) ...[
-                  const SectionHeader('Preporučene Traper primame'),
-                  _TraperComboCard(combo: baitCombo),
+                // ── Sadržaj po izabranoj tehnici ────────────────────────
+                if (_technique == TechniqueType.feeder) ...[
+                  SectionHeader(selectedWaterBody?.type == 'lake'
+                      ? 'Method plan za danas'
+                      : 'Feeder plan za danas'),
+                  _FeederPlanCard(
+                    plan: feederPlan,
+                    realTemp: _waterTemp != null,
+                  ),
+                  if (curatedCombo != null) ...[
+                    const SectionHeader('Traper kombinacija'),
+                    _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
+                  ] else if (baitCombo != null) ...[
+                    const SectionHeader('Preporučene Traper primame'),
+                    _TraperComboCard(combo: baitCombo),
+                  ],
+                ] else if (_technique == TechniqueType.spinning) ...[
+                  const SectionHeader('Plan varaličarenja'),
+                  _LurePlanCard(plan: lurePlan, realTemp: _waterTemp != null),
+                ] else ...[
+                  const SectionHeader('Plan plovkarenja'),
+                  if (trottingOk) ...[
+                    _FloatModeToggle(
+                      selected: floatMode,
+                      onChanged: (m) => setState(() => _floatMode = m),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  _FloatPlanCard(plan: floatPlan, realTemp: _waterTemp != null),
                 ],
-                const SectionHeader('Aktivne vrste'),
-                _SeasonalFishSection(fish: seasonal),
+                const SizedBox(height: 16),
+                Collapsible(
+                  title: 'Aktivne vrste — ${active.name.toLowerCase()}',
+                  child: _SeasonalFishSection(fish: seasonal),
+                ),
                 const SizedBox(height: 24),
                 AppButton(
                   'Zabeleži u dnevnik',
@@ -399,12 +441,14 @@ String _verdictSub(int s) => s >= 60
 
 /// Score hero: tamno zeleni gradijent + poluluk merač + verdikt (light + dark).
 class _ScoreHero extends StatelessWidget {
-  final FishingScore score;
+  final int value;
+  final String techniqueName;
   final String waterName;
   final String? place;
   final String sunrise, sunset;
   const _ScoreHero({
-    required this.score,
+    required this.value,
+    required this.techniqueName,
     required this.waterName,
     this.place,
     required this.sunrise,
@@ -414,7 +458,7 @@ class _ScoreHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final v = score.score;
+    final v = value;
     final numColor = c.score(v);
     const onHero = Color(0xFFF4EFE1);
     return Container(
@@ -489,6 +533,12 @@ class _ScoreHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(techniqueName.toUpperCase(),
+                        style: context.ui(
+                            size: 10,
+                            weight: FontWeight.w800,
+                            color: onHero.withValues(alpha: 0.65))),
+                    const SizedBox(height: 2),
                     Text(_verdict(v), style: context.display(size: 20, color: onHero)),
                     const SizedBox(height: 3),
                     Text(_verdictSub(v),
@@ -690,6 +740,352 @@ class _FeederPlanCard extends StatelessWidget {
   }
 }
 
+/// Plan varaličarenja — klasa pribora, varalice, vođenje, mesta.
+class _LurePlanCard extends StatelessWidget {
+  final LurePlan plan;
+  final bool realTemp;
+  const _LurePlanCard({required this.plan, required this.realTemp});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.gold.withValues(alpha: 0.45)),
+        boxShadow: c.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Klasa pribora + ciljne vrste
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: c.gold.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${plan.lureClass.label} · ${plan.lureClass.castRange}',
+                  style: context.ui(size: 12, weight: FontWeight.w800, color: c.gold),
+                ),
+              ),
+            ],
+          ),
+          if (plan.targetFish.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final fish in plan.targetFish)
+                  AppChip(fish, tone: ChipTone.neutral, small: true),
+              ],
+            ),
+          ],
+          const SizedBox(height: 14),
+          _label(context, '🎣', 'Varalice'),
+          const SizedBox(height: 6),
+          for (final l in plan.lures)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 9),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(l.type,
+                            style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(l.size,
+                          style: context.ui(size: 11.5, weight: FontWeight.w700, color: c.gold)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(l.detail,
+                      style: context.ui(
+                          size: 11.5, weight: FontWeight.w500, color: c.muted, height: 1.35)),
+                ],
+              ),
+            ),
+          const SizedBox(height: 4),
+          _stat(context, 'Vođenje', plan.retrieve),
+          const SizedBox(height: 10),
+          _stat(context, 'Dubina', plan.depth),
+          const SizedBox(height: 10),
+          _stat(context, 'Boje', plan.colors),
+          const SizedBox(height: 10),
+          _stat(context, 'Struna i predvez', plan.line),
+          // „Gde tražiti ribu" je opšte znanje i ne zavisi od dana — stoji u
+          // Školi (lekcija „Čitanje vode"), pa se ovde ne prepisuje.
+          const SizedBox(height: 10),
+          const _SkolaLink(
+              lessonId: 'citanje-vode', label: 'Gde stoji riba — Čitanje vode'),
+          const SizedBox(height: 6),
+          if (plan.notes.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (final n in plan.notes)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('💡 ', style: TextStyle(fontSize: 12)),
+                    Expanded(
+                      child: Text(n,
+                          style: context.ui(
+                              size: 11.5, weight: FontWeight.w500, color: c.muted, height: 1.35)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          if (plan.alternative != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: c.surface3,
+                borderRadius: BorderRadius.circular(AppRadius.s),
+              ),
+              child: Text('↔ ${plan.alternative}',
+                  style: context.ui(
+                      size: 11.5, weight: FontWeight.w600, color: c.muted, height: 1.35)),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            realTemp
+                ? 'Plan prema pravoj temp. vode (RHMZ), bistrini, vetru i vodostaju.'
+                : 'Plan prema proceni temp. vode, bistrini, vetru i vodostaju.',
+            style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint)
+                .copyWith(fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Prekidač između klasičnog plovka i plovka na otpuštanje (samo reke).
+class _FloatModeToggle extends StatelessWidget {
+  final FloatMode selected;
+  final ValueChanged<FloatMode> onChanged;
+  const _FloatModeToggle({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: c.surface3,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          for (final m in FloatMode.values)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(m),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: m == selected ? c.water : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Text(
+                    m.label,
+                    style: context.ui(
+                        size: 12.5,
+                        weight: FontWeight.w700,
+                        color: m == selected ? Colors.white : c.muted),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Plan plovkarenja — plovak, olovljavanje, dubina, mamci, ritam hranjenja.
+/// Za režim „na otpuštanje" dodaje i četiri načina vođenja niz vodu.
+class _FloatPlanCard extends StatelessWidget {
+  final FloatPlan plan;
+  final bool realTemp;
+  const _FloatPlanCard({required this.plan, required this.realTemp});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.water.withValues(alpha: 0.45)),
+        boxShadow: c.shadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (plan.targetFish.isNotEmpty) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final fish in plan.targetFish)
+                  AppChip(fish, tone: ChipTone.neutral, small: true),
+              ],
+            ),
+            const SizedBox(height: 14),
+          ],
+          _label(context, '🪱', 'Mamac na udici'),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final b in plan.hookBaits)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: c.water.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(b,
+                      style: context.ui(size: 12, weight: FontWeight.w700, color: c.water)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _stat(context, 'Štap', plan.rod),
+          const SizedBox(height: 10),
+          _stat(context, 'Plovak', plan.floatType),
+          const SizedBox(height: 10),
+          _stat(context, 'Olovljavanje', plan.shotting),
+          const SizedBox(height: 10),
+          _stat(context, 'Dubina', plan.depth),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _mini(context, 'Predvez', plan.hooklength)),
+              Expanded(child: _mini(context, 'Udica', plan.hookSize)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _stat(context, 'Hranjenje', plan.feeding),
+          // Sva četiri vođenja stoje u Školi (lekcija „Plovak na otpuštanje").
+          // Ovde ide samo ono koje odgovara današnjim uslovima.
+          if (plan.guides.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Divider(color: c.line, height: 1),
+            const SizedBox(height: 12),
+            Builder(builder: (context) {
+              final g = plan.guides.firstWhere(
+                (e) => e.name == plan.recommendedGuide,
+                orElse: () => plan.guides.first,
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(g.name,
+                            style: context.ui(
+                                size: 13.5, weight: FontWeight.w800, color: c.green)),
+                      ),
+                      const AppChip('danas', tone: ChipTone.green, small: true),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(g.how,
+                      style: context.ui(
+                          size: 12.5, weight: FontWeight.w500, color: c.ink, height: 1.45)),
+                ],
+              );
+            }),
+            const SizedBox(height: 8),
+            const _SkolaLink(
+                lessonId: 'otpustanje', label: 'Sva četiri vođenja u Školi'),
+            const SizedBox(height: 6),
+          ],
+          if (plan.notes.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            for (final n in plan.notes)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('💡 ', style: TextStyle(fontSize: 12)),
+                    Expanded(
+                      child: Text(n,
+                          style: context.ui(
+                              size: 11.5, weight: FontWeight.w500, color: c.muted, height: 1.35)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            realTemp
+                ? 'Plan prema pravoj temp. vode (RHMZ), bistrini, vetru i vodostaju.'
+                : 'Plan prema proceni temp. vode, bistrini, vetru i vodostaju.',
+            style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint)
+                .copyWith(fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Deljeni sitni gradivni blokovi za _LurePlanCard / _FloatPlanCard.
+Widget _label(BuildContext context, String icon, String text) => Row(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 14)),
+        const SizedBox(width: 6),
+        Text(text,
+            style: context.ui(size: 11, weight: FontWeight.w700, color: context.c.muted)),
+      ],
+    );
+
+Widget _stat(BuildContext context, String label, String value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: context.ui(size: 10, weight: FontWeight.w700, color: context.c.muted)),
+        const SizedBox(height: 3),
+        Text(value,
+            style: context.ui(
+                size: 12.5, weight: FontWeight.w600, color: context.c.ink, height: 1.35)),
+      ],
+    );
+
+Widget _mini(BuildContext context, String label, String value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: context.ui(size: 10, weight: FontWeight.w700, color: context.c.muted)),
+        const SizedBox(height: 2),
+        Text(value, style: context.ui(size: 13, weight: FontWeight.w600, color: context.c.ink)),
+      ],
+    );
+
 /// Branded Traper combo recommendation — concrete products tuned to conditions.
 class _TraperComboCard extends StatelessWidget {
   final BaitCombo combo;
@@ -718,8 +1114,16 @@ class _TraperComboCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Text('TRAPER',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)),
+                const Flexible(
+                  child: Text('TRAPER',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.5)),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('predlog kombinacije',
@@ -736,8 +1140,8 @@ class _TraperComboCard extends StatelessWidget {
                 if (combo.secondGroundbait != null) ...[
                   Row(
                     children: [
-                      const _MiniLabel('MIKS PRIMAME'),
-                      const Spacer(),
+                      const Expanded(child: _MiniLabel('MIKS PRIMAME')),
+                      const SizedBox(width: 8),
                       if (combo.mixRatio != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -841,16 +1245,26 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('ekspertski recept za ovu vodu',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.85))),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(seasonLabel(combo.season).toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.8)),
                   ),
-                  child: Text(seasonLabel(combo.season).toUpperCase(),
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.8)),
                 ),
               ],
             ),
@@ -878,8 +1292,8 @@ class _CuratedComboCardState extends State<_CuratedComboCard> {
                 if (combo.second != null) ...[
                   Row(
                     children: [
-                      const _MiniLabel('MIKS PRIMAME'),
-                      const Spacer(),
+                      const Expanded(child: _MiniLabel('MIKS PRIMAME')),
+                      const SizedBox(width: 8),
                       if (combo.mixRatio != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1012,24 +1426,7 @@ class _ProductRow extends StatelessWidget {
     }
   }
 
-  static const _shopFallback = 'https://www.m-fishing.rs/shop/';
-
-  /// Otvara m-fishing stranicu proizvoda. Ako je stranica uklonjena (404),
-  /// vodi na prodavnicu (`/shop/`) kao safe-case.
-  Future<void> _openProduct() async {
-    final url = product.productUrl;
-    if (url == null) return;
-    var target = url;
-    try {
-      final resp = await http
-          .head(Uri.parse(url))
-          .timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 404 || resp.statusCode == 410) target = _shopFallback;
-    } catch (_) {
-      // Mreža/timeout/HEAD nedozvoljen — probaj originalni link.
-    }
-    await launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication);
-  }
+  Future<void> _openProduct() => ShopLink.open(product.productUrl, placement: 'recept');
 
   @override
   Widget build(BuildContext context) {
@@ -1097,15 +1494,19 @@ class _ProductRow extends StatelessWidget {
                     children: [
                       Icon(Icons.storefront, size: 13, color: c.green),
                       const SizedBox(width: 4),
-                      Text('Kupi na m-fishing.rs',
-                          style: context.ui(
-                              size: 10.5,
-                              weight: FontWeight.w700,
-                              color: c.green,
-                              letterSpacing: 0)
-                              .copyWith(
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: c.green.withValues(alpha: 0.4))),
+                      Flexible(
+                        child: Text('Kupi na m-fishing.rs',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: context.ui(
+                                    size: 10.5,
+                                    weight: FontWeight.w700,
+                                    color: c.green,
+                                    letterSpacing: 0)
+                                .copyWith(
+                                    decoration: TextDecoration.underline,
+                                    decorationColor: c.green.withValues(alpha: 0.4))),
+                      ),
                       const SizedBox(width: 3),
                       Icon(Icons.open_in_new, size: 12, color: c.green),
                     ],
@@ -1114,117 +1515,6 @@ class _ProductRow extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ClosedSeasonsCard extends StatelessWidget {
-  final List<ClosedSeason> seasons;
-  const _ClosedSeasonsCard({required this.seasons});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: c.shadow,
-        border: Border(left: BorderSide(color: c.coral, width: 4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.block, size: 16, color: c.coral),
-              const SizedBox(width: 8),
-              Text('Lovostaj — zaštitni period',
-                  style: context.ui(size: 13, weight: FontWeight.w700, color: c.coral)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...seasons.map((s) {
-            final icon = fishIconAsset(s.species);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                children: [
-                  if (icon != null)
-                    Image.asset(icon, width: 28, height: 28, fit: BoxFit.contain,
-                        errorBuilder: (_, _, _) => const SizedBox(width: 28))
-                  else
-                    const SizedBox(width: 28),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(s.species, style: context.ui(size: 12, weight: FontWeight.w600, color: c.ink)),
-                  ),
-                  if (s.minSizeCm != null)
-                    Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: c.green.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('min ${s.minSizeCm} cm',
-                          style: context.ui(size: 10, weight: FontWeight.w700, color: c.green)),
-                    ),
-                  Text(s.dateRange, style: context.ui(size: 11, weight: FontWeight.w600, color: c.coral)),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 4),
-          Text('Lokalni propisi mogu se razlikovati od republičkih.',
-              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProtectedAreaCard extends StatelessWidget {
-  final ProtectedArea area;
-  const _ProtectedAreaCard({required this.area});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: c.shadow,
-        border: Border(left: BorderSide(color: c.gold, width: 4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.lock, size: 16, color: c.gold),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('Zaštićeno područje — posebna dozvola',
-                    style: context.ui(size: 13, weight: FontWeight.w700, color: c.gold)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(area.name, style: context.ui(size: 13, weight: FontWeight.w700, color: c.ink)),
-          const SizedBox(height: 3),
-          Text(
-            'Godišnja dozvola: ~${area.permitPrice.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} din',
-            style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted),
-          ),
-          const SizedBox(height: 4),
-          Text('Opšta ribarska dozvola ne važi — proverite kod upravljača područja.',
-              style: context.ui(size: 10, weight: FontWeight.w500, color: c.faint).copyWith(fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -1365,51 +1655,108 @@ class _WaterLevelTile extends StatelessWidget {
   }
 }
 
-class _TechniqueFilter extends StatelessWidget {
+/// Svetla pločica ispod fotografije pribora — ista u obe teme, da tamni
+/// feeder ostane čitljiv i na dark pozadini i na zelenom izabranom tabu.
+const _techTile = Color(0xFFF6F1E4);
+
+/// Tabovi tehnike iznad hero boxa — biraju i skor i sve preporuke ispod.
+/// Redosled je fiksan (Feeder · Varaličarenje · Plovkarenje), a ne po skoru,
+/// da tab ne skakuće ispod prsta kad se uslovi promene.
+class _TechniqueTabs extends StatelessWidget {
+  final List<TechniqueScore> techniques;
   final TechniqueType selected;
   final ValueChanged<TechniqueType> onChanged;
-  const _TechniqueFilter({required this.selected, required this.onChanged});
+  const _TechniqueTabs({
+    required this.techniques,
+    required this.selected,
+    required this.onChanged,
+  });
 
-  static const _opts = [
-    (TechniqueType.feeder, '🎣', 'Feeder'),
-    (TechniqueType.float, '🎏', 'Plovak'),
-    (TechniqueType.spinning, '🐟', 'Varalica'),
+  static const _order = [
+    TechniqueType.feeder,
+    TechniqueType.spinning,
+    TechniqueType.float,
   ];
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     return Row(
-      children: _opts.map((o) {
-        final sel = o.$1 == selected;
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () => onChanged(o.$1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: sel ? c.green : c.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: sel ? c.green : c.line),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(o.$2, style: const TextStyle(fontSize: 13)),
-                    const SizedBox(width: 5),
-                    Text(o.$3,
-                        style: context.ui(
-                            size: 12.5, weight: FontWeight.w700, color: sel ? c.onBrand : c.muted)),
-                  ],
+      children: [
+        for (final type in _order) ...[
+          Builder(builder: (context) {
+            final t = techniques.firstWhere((x) => x.type == type);
+            final sel = type == selected;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(type),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+                  decoration: BoxDecoration(
+                    color: sel ? c.green : c.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: sel ? c.green : c.line),
+                    boxShadow: sel ? c.shadow : null,
+                  ),
+                  child: Column(
+                    children: [
+                      // Fotografije pribora stoje na svetloj pločici — crni
+                      // feeder bi se inače izgubio na tamnoj temi.
+                      Container(
+                        width: 34,
+                        height: 34,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: _techTile,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Image.asset(
+                          t.iconAsset,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                          errorBuilder: (_, _, _) =>
+                              Text(t.icon, style: const TextStyle(fontSize: 15)),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          t.name,
+                          maxLines: 1,
+                          style: context.ui(
+                              size: 11.5,
+                              weight: FontWeight.w700,
+                              color: sel ? c.onBrand : c.muted),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: sel
+                              ? Colors.white.withValues(alpha: 0.22)
+                              : c.score(t.score).withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${t.score}',
+                          style: context.ui(
+                              size: 11,
+                              weight: FontWeight.w800,
+                              color: sel ? c.onBrand : c.score(t.score)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }),
+          if (type != _order.last) const SizedBox(width: 8),
+        ],
+      ],
     );
   }
 }
@@ -1419,6 +1766,7 @@ class _ThreeHourSlots extends StatelessWidget {
   final WaterLevelForecast? waterLevel;
   final List<SolunarWindow> solunarWindows;
   final TechniqueType technique;
+  final bool floatTrotting;
   final WaterBody? waterBody;
   final double? waterTemp;
   final DateTime? sunrise;
@@ -1429,6 +1777,7 @@ class _ThreeHourSlots extends StatelessWidget {
     this.waterLevel,
     required this.solunarWindows,
     required this.technique,
+    this.floatTrotting = false,
     this.waterBody,
     this.waterTemp,
     this.sunrise,
@@ -1463,6 +1812,7 @@ class _ThreeHourSlots extends StatelessWidget {
       waterBody,
       forecast.date.month,
       waterTempOverride: waterTemp,
+      floatTrotting: floatTrotting,
     );
     return (base + _crepBonus(hours.first.time)).clamp(0, 100);
   }
@@ -1556,72 +1906,6 @@ class _ThreeHourSlots extends StatelessWidget {
   }
 }
 
-class _TechniqueSection extends StatelessWidget {
-  final List<TechniqueScore> techniques;
-  final String feederRig;
-  const _TechniqueSection({required this.techniques, required this.feederRig});
-
-  Color _color(TechniqueType type, AppColors c) {
-    switch (type) {
-      case TechniqueType.feeder:
-        return c.water;
-      case TechniqueType.spinning:
-        return c.gold;
-      case TechniqueType.float:
-        return c.green;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Column(
-      children: techniques.map((t) {
-        final color = _color(t.type, c);
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: c.surface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: c.shadow,
-            border: Border(left: BorderSide(color: color, width: 4)),
-          ),
-          child: Row(
-            children: [
-              Text(t.icon, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(t.name, style: context.ui(size: 14, weight: FontWeight.w700, color: c.ink)),
-                    const SizedBox(height: 2),
-                    Text(t.targetFish.join(' · '),
-                        style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted)),
-                    if (t.type == TechniqueType.feeder) ...[
-                      const SizedBox(height: 3),
-                      Text('🎣 $feederRig', style: context.ui(size: 11, weight: FontWeight.w600, color: color)),
-                    ],
-                  ],
-                ),
-              ),
-              Container(
-                width: 46,
-                height: 28,
-                decoration: BoxDecoration(color: c.score(t.score), borderRadius: BorderRadius.circular(8)),
-                alignment: Alignment.center,
-                child: Text(t.score.toString(),
-                    style: context.ui(size: 13, weight: FontWeight.w800, color: Colors.white)),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-}
-
 class _SeasonalFishSection extends StatelessWidget {
   final List<SeasonalFish> fish;
   const _SeasonalFishSection({required this.fish});
@@ -1665,85 +1949,77 @@ class _SeasonalFishSection extends StatelessWidget {
   }
 }
 
-class _PressureTrendCard extends StatelessWidget {
-  final PressureTrendCategory category;
-  final double trendPer3h;
-
-  const _PressureTrendCard({required this.category, required this.trendPer3h});
-
-  String get _icon {
-    switch (category) {
-      case PressureTrendCategory.stable:
-        return '✓';
-      case PressureTrendCategory.preFront:
-        return '⚡';
-      case PressureTrendCategory.slowRise:
-        return '↗';
-      case PressureTrendCategory.rapidFall:
-        return '⚠';
-      case PressureTrendCategory.rapidRise:
-        return '↑↑';
-    }
-  }
-
-  String get _label {
-    switch (category) {
-      case PressureTrendCategory.stable:
-        return 'Stabilan pritisak — ribe predvidive';
-      case PressureTrendCategory.preFront:
-        return 'Pre-frontalni prozor — ribe aktivne!';
-      case PressureTrendCategory.slowRise:
-        return 'Pritisak raste — uslovi se poboljšavaju';
-      case PressureTrendCategory.rapidFall:
-        return 'Brzi pad pritiska — ribe se gase';
-      case PressureTrendCategory.rapidRise:
-        return 'Pritisak naglo raste — ribe se adaptiraju';
-    }
-  }
-
-  Color _accent(AppColors c) {
-    switch (category) {
-      case PressureTrendCategory.stable:
-        return c.good;
-      case PressureTrendCategory.preFront:
-        return c.gold;
-      case PressureTrendCategory.slowRise:
-        return c.green;
-      case PressureTrendCategory.rapidFall:
-        return c.coral;
-      case PressureTrendCategory.rapidRise:
-        return c.gold;
-    }
-  }
+/// Kompaktno upozorenje o propisima. Zamenilo je dve pune kartice — lovostaj
+/// i zaštićeno područje su bitni, ali im ne treba pola ekrana; detalji su u
+/// tabu Propisi, a pravila u Školi (lekcija „Bonton i zakon").
+class _RegsWarnRow extends StatelessWidget {
+  final ProtectedArea? area;
+  final List<ClosedSeason> closed;
+  const _RegsWarnRow({this.area, this.closed = const []});
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final accent = _accent(c);
-    final sign = trendPer3h >= 0 ? '+' : '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: c.shadow,
-        border: Border(left: BorderSide(color: accent, width: 4)),
+    final parts = <String>[
+      if (closed.isNotEmpty)
+        'Lovostaj: ${closed.take(3).map((e) => e.species).join(", ")}'
+            '${closed.length > 3 ? " +${closed.length - 3}" : ""}',
+      if (area != null) 'Zaštićeno: ${area!.name} · ~${area!.permitPrice} din/god.',
+    ];
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RegulationsScreen()),
       ),
       child: Row(
         children: [
-          Text(_icon, style: TextStyle(fontSize: 20, color: accent)),
-          const SizedBox(width: 12),
+          Icon(Icons.warning_amber_rounded, size: 19, color: c.gold),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_label, style: context.ui(size: 13, weight: FontWeight.w700, color: accent)),
-                Text('Trend pritiska: $sign${trendPer3h.toStringAsFixed(1)} mbar/3h',
-                    style: context.ui(size: 11, weight: FontWeight.w500, color: c.muted)),
-              ],
-            ),
+            child: Text(parts.join(' · '),
+                style: context.ui(
+                    size: 12.5, weight: FontWeight.w700, color: c.ink, height: 1.35)),
           ),
+          const SizedBox(width: 6),
+          Icon(Icons.chevron_right, size: 18, color: c.faint),
         ],
+      ),
+    );
+  }
+}
+
+/// Link na lekciju u Školi. Opšte znanje se od 2026-09-08 ne prepisuje na
+/// Result ekranu nego se linkuje — Result nosi samo ono što zavisi od dana.
+class _SkolaLink extends StatelessWidget {
+  final String lessonId;
+  final String label;
+  const _SkolaLink({required this.lessonId, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final lesson = lessonById(lessonId);
+    if (lesson == null) return const SizedBox.shrink();
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LessonScreen(lesson: lesson)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.school_outlined, size: 15, color: c.green),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(label,
+                  style: context.ui(size: 12, weight: FontWeight.w700, color: c.green)),
+            ),
+            Icon(Icons.chevron_right, size: 16, color: c.green),
+          ],
+        ),
       ),
     );
   }

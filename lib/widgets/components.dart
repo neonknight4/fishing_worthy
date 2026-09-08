@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -148,16 +149,26 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    // Tekst mora da ostane neflex-ovan da bi linija popunila ostatak reda, ali
+    // bez gornje granice dug naslov prelije red. Otud LayoutBuilder: naslov se
+    // kapira na širinu reda i prelomi, a linija dobije ono što ostane (i 0).
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 26, 2, 13),
-      child: Row(
-        children: [
-          Text(text.toUpperCase(),
-              style: context.ui(
-                  size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.7)),
-          const SizedBox(width: 9),
-          Expanded(child: Container(height: 1, color: c.line)),
-        ],
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: (box.maxWidth - 9).clamp(0, double.infinity)),
+              child: Text(text.toUpperCase(),
+                  maxLines: 2,
+                  style: context.ui(
+                      size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.7)),
+            ),
+            const SizedBox(width: 9),
+            Expanded(child: Container(height: 1, color: c.line)),
+          ],
+        ),
       ),
     );
   }
@@ -241,9 +252,24 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: large ? 20 : 18, color: fg),
                 const SizedBox(width: 9),
               ],
-              Text(label,
-                  style: context.ui(
-                      size: large ? 17 : 15.5, weight: FontWeight.w700, color: fg)),
+              // U block dugmetu je širina ograničena, pa labela sme da se
+              // skupi — bez ovoga dug tekst („Pročitaj na feeder.rs") prelije
+              // red. Non-block dugme ostaje neflex-ovano, jer može da stoji u
+              // neograničenom Row-u gde Flexible pukne.
+              block
+                  ? Flexible(
+                      child: Text(label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.ui(
+                              size: large ? 17 : 15.5,
+                              weight: FontWeight.w700,
+                              color: fg)),
+                    )
+                  : Text(label,
+                      style: context.ui(
+                          size: large ? 17 : 15.5, weight: FontWeight.w700, color: fg)),
             ],
           ),
         ),
@@ -525,7 +551,7 @@ class ConditionTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 19, color: c.water),
-          const SizedBox(height: 7),
+          const SizedBox(height: 6),
           RichText(
             text: TextSpan(
               text: value,
@@ -539,9 +565,15 @@ class ConditionTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 5),
-          Text(label,
-              style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted)),
+          const SizedBox(height: 4),
+          // Ploča stoji u ćeliji fiksne visine, a labele poput „Vetar SZ" se
+          // prelamaju u dva reda — bez Flexible-a to prelije ćeliju.
+          Flexible(
+            child: Text(label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted)),
+          ),
           if (delta != null) ...[
             const SizedBox(height: 2),
             Text(delta!,
@@ -660,6 +692,116 @@ class MoonVis extends StatelessWidget {
             color: c.surface3,
             borderRadius: const BorderRadius.horizontal(right: Radius.circular(999)),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────── OSM ATTRIBUTION ───────────────────────────
+/// Obavezna atribucija za OpenStreetMap tile-ove (OSMF tile usage policy).
+/// Stavlja se u Stack preko FlutterMap-a; tap otvara copyright stranicu.
+class OsmAttribution extends StatelessWidget {
+  const OsmAttribution({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Positioned(
+      right: 6,
+      bottom: 6,
+      child: GestureDetector(
+        onTap: () => launchUrl(
+          Uri.parse('https://www.openstreetmap.org/copyright'),
+          mode: LaunchMode.externalApplication,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: c.surface.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(AppRadius.s),
+          ),
+          child: Text('© OpenStreetMap',
+              style: context.ui(size: 9.5, weight: FontWeight.w600, color: c.muted)),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────── BOTTOM SHEET ───────────────────────────
+
+/// Zajednička školjka za bottom sheet: hvatalica, opcioni naslov, skrolabilno
+/// telo i fiksiran podnožni deo.
+///
+/// Bez ovoga svaki sheet sa listom preraste ekran — `showModalBottomSheet`
+/// podrazumevano seče na pola visine, a Column sa `mainAxisSize.min` nema
+/// skrol pa prijavi overflow. Ovde: `maxHeight` je deo ekrana, telo skroluje,
+/// `viewInsets` prima tastaturu, a `padding.bottom` sistemsku navigaciju.
+///
+/// Pozivalac MORA da prosledi `isScrollControlled: true`, inače sheet i dalje
+/// ne može da pređe pola ekrana.
+class AppSheet extends StatelessWidget {
+  final String? title;
+  final Widget child;
+
+  /// Ostaje prikovan na dnu, van skrola — tu idu akcije (dugmad), da budu
+  /// dohvatljive i kad je tastatura otvorena.
+  final Widget? footer;
+
+  final double maxHeightFactor;
+
+  const AppSheet({
+    super.key,
+    this.title,
+    required this.child,
+    this.footer,
+    this.maxHeightFactor = 0.85,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final media = MediaQuery.of(context);
+    final safeBottom = media.padding.bottom;
+    return Container(
+      constraints: BoxConstraints(maxHeight: media.size.height * maxHeightFactor),
+      decoration: BoxDecoration(
+        color: c.bg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration:
+                    BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            if (title != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Text(title!, style: context.display(size: 18)),
+              ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                    20, 12, 20, footer == null ? safeBottom + 22 : 10),
+                child: child,
+              ),
+            ),
+            if (footer != null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, 2, 20, safeBottom + 16),
+                child: footer!,
+              ),
+          ],
         ),
       ),
     );

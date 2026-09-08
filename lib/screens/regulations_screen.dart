@@ -122,6 +122,10 @@ class _FishRegRow extends StatelessWidget {
                 _pill(context, Icons.check_circle_outline, reg.note ?? 'Bez lovostaja', tone: c.green),
               if (reg.minSizeCm != null)
                 _pill(context, Icons.straighten, 'Min. ${reg.minSizeCm} cm', tone: c.water2),
+              // Vrste sa lovostajem mogu imati i dodatnu napomenu (npr. noćna
+              // zabrana za salmonide) — bez lovostaja je note već prikazan gore.
+              if (reg.hasClosedSeason && reg.note != null)
+                _pill(context, Icons.nightlight_outlined, reg.note!, tone: c.gold),
             ],
           ),
         ],

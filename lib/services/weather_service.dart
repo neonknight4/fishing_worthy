@@ -1,10 +1,17 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/weather_data.dart';
+import 'api_cache.dart';
 
 class WeatherService {
   static const _baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
+  /// Vreme upisa keša kad je poslednji `fetchForecast` posluženo sa diska
+  /// (nema mreže); `null` = podaci su sveži. UI odavde vadi „podaci od HH:mm".
+  DateTime? servedFromCacheAt;
+
+  /// 7-dnevna prognoza. Uspešan odgovor ide u disk keš; ako mreže nema,
+  /// servira se keširani odgovor za istu lokaciju (do 3 dana star).
   Future<List<DailyForecast>> fetchForecast(double lat, double lon) async {
     final uri = Uri.parse(_baseUrl).replace(queryParameters: {
       'latitude': lat.toString(),
@@ -15,13 +22,30 @@ class WeatherService {
       'windspeed_unit': 'kmh',
     });
 
-    final response = await http.get(uri);
-    if (response.statusCode != 200) {
-      throw Exception('Weather API error: ${response.statusCode}');
+    final key = ApiCache.coordKey('wx', lat, lon);
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        throw Exception('Weather API error: ${response.statusCode}');
+      }
+      final days = _parse(jsonDecode(response.body) as Map<String, dynamic>);
+      await ApiCache.put(key, response.body);
+      servedFromCacheAt = null;
+      return days;
+    } catch (_) {
+      final cached = await ApiCache.get(key);
+      if (cached == null) throw Exception('Nema prognoze ni na mreži ni u kešu');
+      // Keširan prozor je počeo u prošlosti — prošli dani se odbacuju da
+      // „Danas" ne bi pokazivalo juče.
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final days = _parse(jsonDecode(cached.body) as Map<String, dynamic>)
+          .where((d) => !d.date.isBefore(today))
+          .toList();
+      if (days.isEmpty) throw Exception('Keširana prognoza je istekla');
+      servedFromCacheAt = cached.savedAt;
+      return days;
     }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    return _parse(data);
   }
 
   /// Uslovi za jedan (prošli) dan — za dnevnik unos sa promenjenim datumom.

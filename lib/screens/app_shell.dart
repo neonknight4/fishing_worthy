@@ -5,11 +5,11 @@ import '../theme/app_theme.dart';
 import '../widgets/nav_icons.dart';
 import 'home_screen.dart';
 import 'map_screen.dart';
-import 'method_screen.dart';
+import 'school_screen.dart';
 import 'traper_screen.dart';
 import 'diary_list_screen.dart';
 
-/// Root okvir sa donjom navigacijom: Početna · Mapa · Method · Traper · Dnevnik.
+/// Root okvir sa donjom navigacijom: Početna · Mapa · Škola · Traper · Dnevnik.
 /// Propisi + detaljni ekrani (Rezultat, Lista voda, Unos) se `push`-uju preko.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -24,7 +24,7 @@ class _AppShellState extends State<AppShell> {
   // Podrazumevani centar (Beograd) za Mapu kad korisnik nije birao lokaciju.
   static const _defLat = 44.7866, _defLon = 20.4489;
 
-  static const _labels = ['Početna', 'Mapa', 'Method', 'Traper', 'Dnevnik'];
+  static const _labels = ['Početna', 'Mapa', 'Škola', 'Traper', 'Dnevnik'];
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,7 @@ class _AppShellState extends State<AppShell> {
         children: const [
           HomeScreen(),
           MapScreen(latitude: _defLat, longitude: _defLon, locationName: 'Srbija', showBack: false),
-          MethodScreen(),
+          SchoolScreen(),
           TraperScreen(),
           DiaryListScreen(showBack: false),
         ],

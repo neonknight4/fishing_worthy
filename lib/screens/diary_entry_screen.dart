@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
 import '../utils/moon_calc.dart';
 import '../widgets/components.dart';
+import '../widgets/photo_viewer.dart';
 
 class DiaryEntryScreen extends StatefulWidget {
   final DiaryEntry entry;
@@ -103,21 +104,24 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
     super.dispose();
   }
 
+  /// Trenutno stanje forme kao [DiaryEntry] (za čuvanje i za deljenje slika).
+  DiaryEntry _draft() => widget.entry.copyWith(
+        date: _date,
+        technique: _tech,
+        bait: _baits.isEmpty ? null : _baits.join(', '),
+        notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+        catches: _catches,
+        photos: _photos,
+        airTemp: _air,
+        pressure: _pressure,
+        windSpeed: _wind,
+        moonPhase: _moon,
+        waterTempReal: _waterTemp,
+      );
+
   Future<void> _save() async {
     setState(() => _saving = true);
-    final e = widget.entry.copyWith(
-      date: _date,
-      technique: _tech,
-      bait: _baits.isEmpty ? null : _baits.join(', '),
-      notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
-      catches: _catches,
-      photos: _photos,
-      airTemp: _air,
-      pressure: _pressure,
-      windSpeed: _wind,
-      moonPhase: _moon,
-      waterTempReal: _waterTemp,
-    );
+    final e = _draft();
     if (widget.isNew) {
       await _service.insert(e);
     } else {
@@ -137,21 +141,53 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
   }
 
   Future<void> _addPhoto() async {
-    if (_photos.length >= _maxPhotos) return;
+    final free = _maxPhotos - _photos.length;
+    if (free <= 0) return;
     final src = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SourceSheet(),
+      builder: (_) => _SourceSheet(free: free),
     );
     if (src == null) return;
-    final x = await _picker.pickImage(source: src, maxWidth: 1600, imageQuality: 80);
-    if (x == null) return;
+
+    // Galerija: više slika odjednom, najviše onoliko koliko mesta ima.
+    final List<XFile> picked;
+    if (src == ImageSource.camera) {
+      final x = await _picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 80);
+      picked = [?x];
+    } else {
+      picked = await _picker.pickMultiImage(limit: free, maxWidth: 1600, imageQuality: 80);
+    }
+    if (picked.isEmpty) return;
+
     final dir = await getApplicationDocumentsDirectory();
     final photosDir = Directory(p.join(dir.path, 'diary_photos'));
     if (!await photosDir.exists()) await photosDir.create(recursive: true);
-    final dest = p.join(photosDir.path, '${DateTime.now().millisecondsSinceEpoch}_${p.basename(x.path)}');
-    await File(x.path).copy(dest);
-    if (mounted) setState(() => _photos.add(dest));
+
+    final added = <String>[];
+    for (final x in picked.take(free)) {
+      final dest = p.join(photosDir.path,
+          '${DateTime.now().microsecondsSinceEpoch}_${p.basename(x.path)}');
+      await File(x.path).copy(dest);
+      added.add(dest);
+    }
+    if (!mounted) return;
+    setState(() => _photos.addAll(added));
+    // Photo picker na starijim Androidima ignoriše `limit` — reci šta je odbačeno.
+    if (picked.length > free) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Dodato $free — više od $_maxPhotos fotografija po izlasku ne ide.')),
+      );
+    }
+  }
+
+  void _openViewer(int i) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhotoViewerScreen(paths: [..._photos], initialIndex: i, entry: _draft()),
+      ),
+    );
   }
 
   void _removePhoto(int i) {
@@ -200,6 +236,8 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 ),
                 const SizedBox(height: 14),
                 _textField('Beleške', _notes, 'Komentar dana…', lines: 4),
+                const SizedBox(height: 14),
+                _privacyNote(),
               ],
             ),
           ),
@@ -448,12 +486,15 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
               for (int i = 0; i < _photos.length; i++)
                 Stack(
                   children: [
-                    ClipRRect(
+                    GestureDetector(
+                      onTap: () => _openViewer(i),
+                      child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.file(File(_photos[i]), width: 76, height: 76, fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => Container(
                               width: 76, height: 76, color: c.surface3,
                               child: Icon(Icons.broken_image, color: c.faint, size: 24))),
+                    ),
                     ),
                     Positioned(
                       top: 2, right: 2,
@@ -483,14 +524,58 @@ class _DiaryEntryScreenState extends State<DiaryEntryScreen> {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.lock_outline, size: 13, color: c.faint),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Slike ostaju na ovom telefonu — ne šalju se nigde.',
+                  style: context.ui(size: 11, weight: FontWeight.w500, color: c.faint, height: 1.3),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dnevnik je 100% lokalan: baza je sqflite fajl na uređaju, slike se
+  /// kopiraju u privatni folder aplikacije. Nema naloga, nema sinhronizacije.
+  Widget _privacyNote() {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: c.surface3,
+        borderRadius: BorderRadius.circular(AppRadius.s),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.phonelink_lock_outlined, size: 16, color: c.muted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Ovaj unos — slike, lokacija i ulov — čuva se samo na tvom telefonu. '
+              'Nema naloga ni sinhronizacije, drugi korisnici ga ne vide. '
+              'Odlazi dalje jedino ako ga ti sam podeliš dugmetom „Podeli".',
+              style: context.ui(size: 11.5, weight: FontWeight.w500, color: c.muted, height: 1.4),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Izbor izvora slike (kamera / galerija).
+/// Izbor izvora slike (kamera / galerija — galerija dozvoljava više odjednom).
 class _SourceSheet extends StatelessWidget {
+  final int free;
+  const _SourceSheet({required this.free});
   @override
   Widget build(BuildContext context) {
     final c = context.c;
@@ -505,7 +590,8 @@ class _SourceSheet extends StatelessWidget {
           AppButton('Kamera', icon: Icons.photo_camera, block: true,
               onTap: () => Navigator.pop(context, ImageSource.camera)),
           const SizedBox(height: 8),
-          AppButton('Galerija', icon: Icons.photo_library_outlined, kind: BtnKind.outline, block: true,
+          AppButton(free > 1 ? 'Galerija (do $free)' : 'Galerija',
+              icon: Icons.photo_library_outlined, kind: BtnKind.outline, block: true,
               onTap: () => Navigator.pop(context, ImageSource.gallery)),
         ],
       ),
@@ -537,22 +623,30 @@ class _AddCatchSheetState extends State<_AddCatchSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-      decoration: BoxDecoration(
-        color: c.bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    // Wrap sa 15 vrsta + dva polja za unos ne staju na ekran kad je tastatura
+    // otvorena — telo skroluje, „Dodaj" ostaje prikovan u podnožju.
+    return AppSheet(
+      title: 'Dodaj ribu',
+      footer: AppButton(
+        'Dodaj',
+        block: true,
+        large: true,
+        onTap: _species == null
+            ? null
+            : () => Navigator.pop(
+                  context,
+                  CatchItem(
+                    species: _species!,
+                    count: _count,
+                    maxWeightKg: double.tryParse(_weight.text.replaceAll(',', '.')),
+                    maxLengthCm: double.tryParse(_length.text.replaceAll(',', '.')),
+                  ),
+                ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2))),
-          ),
-          const SizedBox(height: 16),
-          Text('Dodaj ribu', style: context.display(size: 18)),
-          const SizedBox(height: 14),
           Text('VRSTA', style: context.ui(size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 0.4)),
           const SizedBox(height: 8),
           Wrap(
@@ -602,23 +696,6 @@ class _AddCatchSheetState extends State<_AddCatchSheet> {
               const SizedBox(width: 12),
               Expanded(child: _numField(_length, 'Najveća (cm)')),
             ],
-          ),
-          const SizedBox(height: 18),
-          AppButton(
-            'Dodaj',
-            block: true,
-            large: true,
-            onTap: _species == null
-                ? null
-                : () => Navigator.pop(
-                      context,
-                      CatchItem(
-                        species: _species!,
-                        count: _count,
-                        maxWeightKg: double.tryParse(_weight.text.replaceAll(',', '.')),
-                        maxLengthCm: double.tryParse(_length.text.replaceAll(',', '.')),
-                      ),
-                    ),
           ),
         ],
       ),

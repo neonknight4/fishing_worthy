@@ -46,3 +46,8 @@ app.*.map.json
 
 # Raw RHMZ/Overpass dumps — regenerable inputs for tools/
 /data_raw/
+
+# Release signing (Play upload key) — nikad u git
+android/key.properties
+*.jks
+*.keystore

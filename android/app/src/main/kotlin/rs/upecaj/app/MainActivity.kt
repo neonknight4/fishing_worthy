@@ -1,4 +1,4 @@
-package com.mihajlo.fishing_worthy
+package rs.upecaj.app
 
 import io.flutter.embedding.android.FlutterActivity
 

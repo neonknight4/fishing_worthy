@@ -17,10 +17,10 @@ const navIcons = <NavIcon>[
     '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3.5 6v13.5l5.5-2 6 2 5.5-2V4l-5.5 2-6-2Z"/><path d="M9 4v13.5"/><path d="M15 6v13.5"/></svg>',
     '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3.2 2.9 5.3A1 1 0 0 0 2.2 6.3v13.4a1 1 0 0 0 1.3 1l5.2-1.9V3.2Zm1.6 0v15.6l4.4 1.5V4.7l-4.4-1.5Zm6 1.5v15.6l4.5-1.6a1 1 0 0 0 .7-1V4a1 1 0 0 0-1.3-1l-3.9 1.4Z"/></svg>',
   ),
-  // 3 · Method (flat method feeder: kap uska gore sa tubom + kavez rebra + vrtilo dole)
+  // 3 · Škola (diplomska kapa + traka)
   NavIcon(
-    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.9 6.8 11.5 3.6 12.5 3.6 13.1 6.8"/><path d="M12 6.4C8.4 8 6.9 11.1 7.5 14.2 8.1 17.7 15.9 17.7 16.5 14.2 17.1 11.1 15.6 8 12 6.4Z"/><path d="M12 6.6V17.4"/><path d="M8.1 11.1C10.7 10.2 13.3 10.2 15.9 11.1"/><path d="M7.7 13.7C10.6 12.8 13.4 12.8 16.3 13.7"/><path d="M10.7 19a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 1 0-2.6 0Z"/></svg>',
-    '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.4C8.4 8 6.9 11.1 7.5 14.2 8.1 17.7 15.9 17.7 16.5 14.2 17.1 11.1 15.6 8 12 6.4Z"/><path d="M10.9 6.8 11.5 3.6 12.5 3.6 13.1 6.8" fill="none"/><path d="M10.7 19a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 1 0-2.6 0Z" fill="none"/></svg>',
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8 2.6 8.2 12 12.6l9.4-4.4L12 3.8Z"/><path d="M6.6 10.4v4.4c0 1.7 2.4 3 5.4 3s5.4-1.3 5.4-3v-4.4"/><path d="M21.4 8.4v5.2"/></svg>',
+    '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.8 2.6 8.2 12 12.6l9.4-4.4L12 3.8Z"/><path d="M6.6 10.4v4.4c0 1.7 2.4 3 5.4 3s5.4-1.3 5.4-3v-4.4" fill="none"/><path d="M21.4 8.4v5.2" fill="none"/></svg>',
   ),
   // 4 · Traper (prodavnica / tezga)
   NavIcon(

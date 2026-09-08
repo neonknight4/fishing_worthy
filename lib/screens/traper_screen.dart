@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 import '../data/traper_baits.dart';
 import '../models/bait_product.dart';
+import '../services/shop_link.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/components.dart';
@@ -130,18 +129,7 @@ class _ProductCard extends StatelessWidget {
   final BaitProduct product;
   const _ProductCard({required this.product});
 
-  static const _shopFallback = 'https://www.m-fishing.rs/shop/';
-
-  Future<void> _open() async {
-    final url = product.productUrl;
-    if (url == null) return;
-    var target = url;
-    try {
-      final resp = await http.head(Uri.parse(url)).timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 404 || resp.statusCode == 410) target = _shopFallback;
-    } catch (_) {}
-    await launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication);
-  }
+  Future<void> _open() => ShopLink.open(product.productUrl, placement: 'katalog');
 
   @override
   Widget build(BuildContext context) {

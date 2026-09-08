@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../logic/technique_advisor.dart';
 import '../models/fishing_score.dart';
 import '../models/weather_data.dart';
 import '../services/location_service.dart';
@@ -46,6 +47,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _searching = false;
   bool _showRecent = false;
   String? _error;
+  /// != null → prognoza je iz offline keša; vreme je kad je upisana.
+  DateTime? _cacheStamp;
 
   static const _dayNames = ['Ned', 'Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub'];
 
@@ -132,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final updatedRecent = await _recentService.load();
 
     setState(() {
+      _cacheStamp = _weatherService.servedFromCacheAt;
       _selectedLocation = loc;
       _forecasts = forecasts;
       _waterBodies = waterBodies;
@@ -232,13 +236,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Vodostaj (protok) nema smisla za stajaće vode — ne ulazi u ocenu.
+  WaterLevelForecast? get _scoringLevel =>
+      _selectedWaterBody?.type == 'lake' ? null : _waterLevelForecast;
+
+  /// Skor za jedan dan iz prognoze. Isti ulaz za day-chipove i za Result.
+  FishingScore _scoreFor(DailyForecast f) =>
+      FishingScore.calculate(f, waterLevel: _scoringLevel);
+
   void _openResult() {
     if (_forecasts.isEmpty || _selectedLocation == null) return;
     final forecast = _forecasts[_selectedDayIndex];
-    // Vodostaj (protok) nema smisla za stajaće vode — ne ulazi u ocenu.
-    final isLake = _selectedWaterBody?.type == 'lake';
-    final wl = isLake ? null : _waterLevelForecast;
-    final score = FishingScore.calculate(forecast, waterLevel: wl);
+    final wl = _scoringLevel;
+    final score = _scoreFor(forecast);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -264,7 +274,10 @@ class _HomeScreenState extends State<HomeScreen> {
           else if (_showRecent)
             _buildRecentDropdown(),
           if (_error != null) _buildError(),
+          if (_cacheStamp != null && !_loading) _buildStaleBanner(),
           Expanded(child: _loading ? _buildLoading() : _buildBody()),
+          if (!_loading && _forecasts.isNotEmpty && _selectedLocation != null)
+            _buildPinnedCta(),
         ],
       ),
     );
@@ -412,6 +425,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Kad nema signala, prognoza dolazi sa diska — korisnik na vodi mora da zna
+  /// da gleda stare podatke, a ne trenutno stanje.
+  Widget _buildStaleBanner() {
+    final t = _cacheStamp!;
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    final sameDay = DateUtils.isSameDay(t, DateTime.now());
+    final when = sameDay ? 'danas u $hh:$mm' : '${t.day}.${t.month}. u $hh:$mm';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+      child: WarnBanner(
+        icon: Icons.cloud_off,
+        title: 'Nema mreže — offline podaci',
+        message: 'Prikazano je zadnje preuzeto stanje ($when). Osveži kad uhvatiš signal.',
+      ),
+    );
+  }
+
   Widget _buildLoading() {
     return Center(
       child: Column(
@@ -514,9 +545,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _buildBriefing(),
           const SectionLabel('Odaberi dan'),
           SizedBox(
-            height: 66,
+            height: 78,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: _forecasts.length,
@@ -526,10 +559,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 final isSelected = i == _selectedDayIndex;
                 final dayName = i == 0 ? 'Danas' : _dayNames[day.date.weekday % 7];
                 final dateStr = '${day.date.day}.${day.date.month}.';
+                // Skor stoji na čipu da se najbolji dan u nedelji vidi bez ulaska
+                // u Result — sedam poziva `calculate` po rebuild-u, sve sinhrono.
+                final dayScore = _scoreFor(day).score;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedDayIndex = i),
                   child: Container(
-                    width: 62,
+                    width: 64,
                     decoration: BoxDecoration(
                       color: isSelected ? c.green : c.surface,
                       borderRadius: BorderRadius.circular(14),
@@ -543,10 +579,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                 size: 10,
                                 weight: FontWeight.w700,
                                 color: isSelected ? c.onBrand.withValues(alpha: 0.85) : c.muted)),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 2),
                         Text(dateStr,
                             style: context.display(
-                                size: 14, weight: FontWeight.w700, color: isSelected ? c.onBrand : c.ink)),
+                                size: 13.5, weight: FontWeight.w700, color: isSelected ? c.onBrand : c.ink)),
+                        const SizedBox(height: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: c.score(dayScore),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text('$dayScore',
+                              style: context.ui(
+                                  size: 11.5, weight: FontWeight.w800, color: Colors.white)),
+                        ),
                       ],
                     ),
                   ),
@@ -621,12 +668,98 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 28),
-          AppButton('Proveri stanje za pecanje',
-              icon: Icons.phishing,
-              large: true,
-              block: true,
-              onTap: _waterLevelLoading ? null : _openResult),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
+  /// CTA je prikovan iznad donje navigacije — bio je na dnu skrola, pa se do
+  /// glavne akcije moralo skrolovati kroz alate i obližnje vode.
+  Widget _buildPinnedCta() {
+    final c = context.c;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
+      decoration: BoxDecoration(
+        color: c.bg,
+        border: Border(top: BorderSide(color: c.line)),
+      ),
+      child: AppButton('Proveri stanje za pecanje',
+          icon: Icons.phishing,
+          large: true,
+          block: true,
+          onTap: _waterLevelLoading ? null : _openResult),
+    );
+  }
+
+  /// „Danas na vodi" — dnevni sažetak za trenutno izabranu vodu: skor za danas,
+  /// najbolja tehnika i jedan razlog. Tap vodi na Result za danas.
+  ///
+  /// Skor je isti model kao na day-chipovima (procenjena temp. vode). Result
+  /// ekran ga posle precizira pravom temperaturom sa RHMZ stanice, pa se broj
+  /// tamo može malo razlikovati.
+  Widget _buildBriefing() {
+    final c = context.c;
+    final today = _forecasts.first;
+    final score = _scoreFor(today);
+    final best = TechniqueAdvisor.advise(
+      today,
+      _scoringLevel,
+      _selectedWaterBody,
+      today.date,
+    ).first;
+    final line = best.positives.isNotEmpty
+        ? best.positives.first
+        : best.negatives.isNotEmpty
+            ? best.negatives.first
+            : 'Uslovi su osrednji — probaj u zoru ili sumrak.';
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      onTap: () {
+        setState(() => _selectedDayIndex = 0);
+        _openResult();
+      },
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: c.score(score.score).withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text('${score.score}',
+                style: context.display(size: 21, weight: FontWeight.w800, color: c.score(score.score))),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('DANAS NA VODI',
+                        style: context.ui(size: 10, weight: FontWeight.w800, color: c.muted, letterSpacing: 1.4)),
+                    const Spacer(),
+                    Icon(Icons.chevron_right, size: 18, color: c.faint),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text('${score.ratingLabel} · ${best.name} (${best.score})',
+                    style: context.ui(size: 14, weight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(line,
+                    style: context.ui(size: 12, weight: FontWeight.w500, color: c.muted, height: 1.35)),
+                if (best.targetFish.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text('🐟 ${best.targetFish.take(3).join(" · ")}',
+                      style: context.ui(size: 11.5, weight: FontWeight.w600, color: c.water2)),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

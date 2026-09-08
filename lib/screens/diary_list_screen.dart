@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/fish_icons.dart';
 import '../widgets/components.dart';
+import '../widgets/photo_viewer.dart';
 import 'diary_entry_screen.dart';
 import 'diary_stats_screen.dart';
 
@@ -69,6 +70,21 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
     }
   }
 
+  /// Deljenje unosa: sa više slika pita „sve odjednom" ili „jednu po jednu"
+  /// (story), bez slika deli samo tekst.
+  Future<void> _share(DiaryEntry e) async {
+    await shareEntryPhotos(context, e);
+  }
+
+  void _openPhotos(DiaryEntry e, int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PhotoViewerScreen(paths: [...e.photos], initialIndex: index, entry: e),
+      ),
+    );
+  }
+
   String _fmtDate(DateTime d) => '${d.day}.${d.month}.${d.year}.';
 
   @override
@@ -104,6 +120,8 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
                             fmtDate: _fmtDate,
                             onTap: () => _openEntry(_entries[i]),
                             onDelete: () => _confirmDelete(_entries[i]),
+                            onShare: () => _share(_entries[i]),
+                            onOpenPhoto: (ph) => _openPhotos(_entries[i], ph),
                           ),
                         ),
                       ),
@@ -140,9 +158,17 @@ class _DiaryListScreenState extends State<DiaryListScreen> {
 class _EntryCard extends StatelessWidget {
   final DiaryEntry entry;
   final String Function(DateTime) fmtDate;
-  final VoidCallback onTap, onDelete;
+  final VoidCallback onTap, onDelete, onShare;
+  final void Function(int index) onOpenPhoto;
 
-  const _EntryCard({required this.entry, required this.fmtDate, required this.onTap, required this.onDelete});
+  const _EntryCard({
+    required this.entry,
+    required this.fmtDate,
+    required this.onTap,
+    required this.onDelete,
+    required this.onShare,
+    required this.onOpenPhoto,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +185,11 @@ class _EntryCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(fmtDate(entry.date), style: context.display(size: 15, weight: FontWeight.w700)),
               const Spacer(),
+              GestureDetector(
+                onTap: onShare,
+                child: Icon(Icons.share_outlined, size: 18, color: c.water),
+              ),
+              const SizedBox(width: 14),
               GestureDetector(
                 onTap: onDelete,
                 child: Icon(Icons.delete_outline, size: 19, color: c.faint),
@@ -210,23 +241,22 @@ class _EntryCard extends StatelessWidget {
           ],
           if (entry.photos.isNotEmpty) ...[
             const SizedBox(height: 10),
-            SizedBox(
-              height: 56,
-              child: Row(
-                children: [
-                  for (final ph in entry.photos.take(5))
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(File(ph), width: 56, height: 56, fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                                width: 56, height: 56, color: c.surface3,
-                                child: Icon(Icons.broken_image, color: c.faint, size: 20))),
-                      ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (int i = 0; i < entry.photos.take(5).length; i++)
+                  GestureDetector(
+                    onTap: () => onOpenPhoto(i),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(File(entry.photos[i]), width: 56, height: 56, fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                              width: 56, height: 56, color: c.surface3,
+                              child: Icon(Icons.broken_image, color: c.faint, size: 20))),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ],
           if (entry.notes != null && entry.notes!.isNotEmpty) ...[

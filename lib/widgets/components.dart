@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/section_prefs.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -412,14 +413,33 @@ class Collapsible extends StatefulWidget {
   final String title;
   final Widget child;
   final bool initiallyOpen;
-  const Collapsible(
-      {super.key, required this.title, required this.child, this.initiallyOpen = false});
+
+  /// Kad je zadat, stanje sekcije se pamti pod tim ključem — korisnik je
+  /// sklopi jednom i ostaje sklopljena. Bez ključa se ponaša kao ranije.
+  final String? persistKey;
+
+  const Collapsible({
+    super.key,
+    required this.title,
+    required this.child,
+    this.initiallyOpen = false,
+    this.persistKey,
+  });
   @override
   State<Collapsible> createState() => _CollapsibleState();
 }
 
 class _CollapsibleState extends State<Collapsible> {
-  late bool _open = widget.initiallyOpen;
+  late bool _open = widget.persistKey == null
+      ? widget.initiallyOpen
+      : SectionPrefs.isOpen(widget.persistKey!, widget.initiallyOpen);
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    final k = widget.persistKey;
+    if (k != null) SectionPrefs.setOpen(k, _open);
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.c;
@@ -428,7 +448,7 @@ class _CollapsibleState extends State<Collapsible> {
       children: [
         Container(margin: const EdgeInsets.only(top: 10), height: 1, color: c.line),
         InkWell(
-          onTap: () => setState(() => _open = !_open),
+          onTap: _toggle,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(0, 13, 0, 3),
             child: Row(

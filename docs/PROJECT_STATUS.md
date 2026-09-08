@@ -78,6 +78,9 @@
     (lead pasus, sekcije, prored 1.55). Vreme čitanja se računa iz dužine teksta;
     „pročitano" se beleži kad korisnik stigne do DNA lekcije, ne na otvaranje
     (`services/school_progress_service.dart`).
+- **Result sekcije se pamte** — sve u Collapsible-u, otvorene po defaultu, a
+  sklopljeno stanje se čuva po sekciji (`services/section_prefs.dart` +
+  `persistKey`). Čita se u `main()` pre prvog kadra, pa nema treperenja.
 - **Interaktivni comparator** (`ComparatorSet` + `_ComparatorView`) — biraš dva
   predmeta preko bottom sheet-a, vidiš ih jedan uz drugi i tabelu razlika sa
   **istaknutim redovima gde se razlikuju**.

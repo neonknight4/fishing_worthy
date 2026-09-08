@@ -239,8 +239,11 @@ class _ResultScreenState extends State<ResultScreen> {
                   const SizedBox(height: 12),
                   _RegsWarnRow(area: protectedArea, closed: closedNow),
                 ],
-                const SectionHeader('Uslovi'),
-                GridView.count(
+                Collapsible(
+                  title: 'Uslovi',
+                  initiallyOpen: true,
+                  persistKey: 'result.uslovi',
+                  child: GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -286,41 +289,56 @@ class _ResultScreenState extends State<ResultScreen> {
                           : '~${f.estimatedWaterTemperature.toStringAsFixed(0)}',
                       unit: '°C',
                       label: _waterTemp != null ? 'Voda' : 'Voda (proc.)',
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-                if (active.positives.isNotEmpty || active.negatives.isNotEmpty) ...[
-                  SectionHeader('Zašto ovaj skor — ${active.name.toLowerCase()}'),
-                  FactorList([
-                    for (final p in active.positives) FactorItem(positive: true, title: p),
-                    for (final n in active.negatives) FactorItem(positive: false, title: n),
-                  ]),
-                ],
+                if (active.positives.isNotEmpty || active.negatives.isNotEmpty)
+                  Collapsible(
+                    title: 'Zašto ovaj skor — ${active.name.toLowerCase()}',
+                    initiallyOpen: true,
+                    persistKey: 'result.zasto',
+                    child: FactorList([
+                      for (final p in active.positives) FactorItem(positive: true, title: p),
+                      for (final n in active.negatives) FactorItem(positive: false, title: n),
+                    ]),
+                  ),
                 // Vodostaj nema smisla za stajaće vode (jezera/bare) — samo reke.
                 if (selectedWaterBody?.type != 'lake' &&
-                    (waterLevel != null || _levelForecasts.isNotEmpty)) ...[
-                  const SectionHeader('Vodostaj'),
-                  if (waterLevel != null)
-                    _WaterLevelTile(
-                      waterLevel: waterLevel,
-                      waterBodyName: waterLevel.waterBodyName ?? selectedWaterBody?.name,
+                    (waterLevel != null || _levelForecasts.isNotEmpty))
+                  Collapsible(
+                    title: 'Vodostaj',
+                    initiallyOpen: true,
+                    persistKey: 'result.vodostaj',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (waterLevel != null)
+                          _WaterLevelTile(
+                            waterLevel: waterLevel,
+                            waterBodyName:
+                                waterLevel.waterBodyName ?? selectedWaterBody?.name,
+                          ),
+                        if (_levelForecasts.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            'RHMZ prognoza nivoa — reke u blizini',
+                            style: context.ui(
+                                size: 11, weight: FontWeight.w600, color: c.muted),
+                          ),
+                          const SizedBox(height: 6),
+                          ..._levelForecasts.map((fc) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _LevelForecastTile(forecast: fc),
+                              )),
+                        ],
+                      ],
                     ),
-                  if (_levelForecasts.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'RHMZ prognoza nivoa — reke u blizini',
-                      style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted),
-                    ),
-                    const SizedBox(height: 6),
-                    ..._levelForecasts.map((fc) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _LevelForecastTile(forecast: fc),
-                        )),
-                  ],
-                ],
-                const SizedBox(height: 16),
+                  ),
                 Collapsible(
                   title: 'Prognoza po intervalima — ${active.name.toLowerCase()}',
+                  initiallyOpen: true,
+                  persistKey: 'result.intervali',
                   child: _ThreeHourSlots(
                   forecast: f,
                   waterLevel: waterLevel,
@@ -333,44 +351,72 @@ class _ResultScreenState extends State<ResultScreen> {
                     sunset: sunset,
                   ),
                 ),
-                const SizedBox(height: 10),
                 Collapsible(
                   title: 'Mesec i solunar',
+                  initiallyOpen: true,
+                  persistKey: 'result.solunar',
                   child: _MoonSolunarCard(phase: moonPhaseVal, windows: solunarWindows),
                 ),
                 // ── Sadržaj po izabranoj tehnici ────────────────────────
                 if (_technique == TechniqueType.feeder) ...[
-                  SectionHeader(selectedWaterBody?.type == 'lake'
-                      ? 'Method plan za danas'
-                      : 'Feeder plan za danas'),
-                  _FeederPlanCard(
-                    plan: feederPlan,
-                    realTemp: _waterTemp != null,
-                  ),
-                  if (curatedCombo != null) ...[
-                    const SectionHeader('Traper kombinacija'),
-                    _CuratedComboCard(combo: curatedCombo, activity: fishActivity),
-                  ] else if (baitCombo != null) ...[
-                    const SectionHeader('Preporučene Traper primame'),
-                    _TraperComboCard(combo: baitCombo),
-                  ],
-                ] else if (_technique == TechniqueType.spinning) ...[
-                  const SectionHeader('Plan varaličarenja'),
-                  _LurePlanCard(plan: lurePlan, realTemp: _waterTemp != null),
-                ] else ...[
-                  const SectionHeader('Plan plovkarenja'),
-                  if (trottingOk) ...[
-                    _FloatModeToggle(
-                      selected: floatMode,
-                      onChanged: (m) => setState(() => _floatMode = m),
+                  Collapsible(
+                    title: selectedWaterBody?.type == 'lake'
+                        ? 'Method plan za danas'
+                        : 'Feeder plan za danas',
+                    initiallyOpen: true,
+                    persistKey: 'result.plan.feeder',
+                    child: _FeederPlanCard(
+                      plan: feederPlan,
+                      realTemp: _waterTemp != null,
                     ),
-                    const SizedBox(height: 12),
-                  ],
-                  _FloatPlanCard(plan: floatPlan, realTemp: _waterTemp != null),
-                ],
-                const SizedBox(height: 16),
+                  ),
+                  if (curatedCombo != null)
+                    Collapsible(
+                      title: 'Traper kombinacija',
+                      initiallyOpen: true,
+                      persistKey: 'result.traper',
+                      child: _CuratedComboCard(
+                          combo: curatedCombo, activity: fishActivity),
+                    )
+                  else if (baitCombo != null)
+                    Collapsible(
+                      title: 'Preporučene Traper primame',
+                      initiallyOpen: true,
+                      persistKey: 'result.traper',
+                      child: _TraperComboCard(combo: baitCombo),
+                    ),
+                ] else if (_technique == TechniqueType.spinning)
+                  Collapsible(
+                    title: 'Plan varaličarenja',
+                    initiallyOpen: true,
+                    persistKey: 'result.plan.varalica',
+                    child: _LurePlanCard(plan: lurePlan, realTemp: _waterTemp != null),
+                  )
+                else
+                  Collapsible(
+                    title: 'Plan plovkarenja',
+                    initiallyOpen: true,
+                    persistKey: 'result.plan.plovak',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Prekidač režima stoji UNUTAR sekcije — bez njega
+                        // korisnik ne bi mogao da bira kad je sklopljena.
+                        if (trottingOk) ...[
+                          _FloatModeToggle(
+                            selected: floatMode,
+                            onChanged: (m) => setState(() => _floatMode = m),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                        _FloatPlanCard(plan: floatPlan, realTemp: _waterTemp != null),
+                      ],
+                    ),
+                  ),
                 Collapsible(
                   title: 'Aktivne vrste — ${active.name.toLowerCase()}',
+                  initiallyOpen: true,
+                  persistKey: 'result.vrste',
                   child: _SeasonalFishSection(fish: seasonal),
                 ),
                 const SizedBox(height: 24),
@@ -1862,8 +1908,11 @@ class _ThreeHourSlots extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Kolona vremena je fiksna, pa red nema šta da upije ako se
+              // tekstovi rašire (drugi font, duži broj) — otud uža kolona i
+              // ellipsis na brojevima ispod.
               SizedBox(
-                width: 88,
+                width: 72,
                 child: Row(
                   children: [
                     if (isGolden) const Text('⭐', style: TextStyle(fontSize: 10)),
@@ -1873,7 +1922,11 @@ class _ThreeHourSlots extends StatelessWidget {
                       const SizedBox(width: 2),
                     ],
                     Expanded(
-                      child: Text(timeLabel, style: context.ui(size: 12, weight: FontWeight.w700, color: c.ink)),
+                      child: Text(timeLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: context.ui(
+                              size: 12, weight: FontWeight.w700, color: c.ink)),
                     ),
                   ],
                 ),
@@ -1889,10 +1942,16 @@ class _ThreeHourSlots extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Icon(Icons.thermostat, size: 14, color: c.coral),
-              Text('${temp.toStringAsFixed(0)}°', style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
+              Text('${temp.toStringAsFixed(0)}°',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const SizedBox(width: 8),
               Icon(Icons.air, size: 14, color: c.water),
-              Text(wind.toStringAsFixed(0), style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
+              Text(wind.toStringAsFixed(0),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.ui(size: 12, weight: FontWeight.w600, color: c.muted)),
               const Spacer(),
               Text(
                 slotScoreVal >= 80 ? '🎣' : slotScoreVal >= 60 ? '👍' : slotScoreVal >= 40 ? '😐' : '👎',

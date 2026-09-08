@@ -623,22 +623,30 @@ class _AddCatchSheetState extends State<_AddCatchSheet> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-      decoration: BoxDecoration(
-        color: c.bg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    // Wrap sa 15 vrsta + dva polja za unos ne staju na ekran kad je tastatura
+    // otvorena — telo skroluje, „Dodaj" ostaje prikovan u podnožju.
+    return AppSheet(
+      title: 'Dodaj ribu',
+      footer: AppButton(
+        'Dodaj',
+        block: true,
+        large: true,
+        onTap: _species == null
+            ? null
+            : () => Navigator.pop(
+                  context,
+                  CatchItem(
+                    species: _species!,
+                    count: _count,
+                    maxWeightKg: double.tryParse(_weight.text.replaceAll(',', '.')),
+                    maxLengthCm: double.tryParse(_length.text.replaceAll(',', '.')),
+                  ),
+                ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
-            child: Container(width: 40, height: 4, decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2))),
-          ),
-          const SizedBox(height: 16),
-          Text('Dodaj ribu', style: context.display(size: 18)),
-          const SizedBox(height: 14),
           Text('VRSTA', style: context.ui(size: 12, weight: FontWeight.w800, color: c.muted, letterSpacing: 0.4)),
           const SizedBox(height: 8),
           Wrap(
@@ -688,23 +696,6 @@ class _AddCatchSheetState extends State<_AddCatchSheet> {
               const SizedBox(width: 12),
               Expanded(child: _numField(_length, 'Najveća (cm)')),
             ],
-          ),
-          const SizedBox(height: 18),
-          AppButton(
-            'Dodaj',
-            block: true,
-            large: true,
-            onTap: _species == null
-                ? null
-                : () => Navigator.pop(
-                      context,
-                      CatchItem(
-                        species: _species!,
-                        count: _count,
-                        maxWeightKg: double.tryParse(_weight.text.replaceAll(',', '.')),
-                        maxLengthCm: double.tryParse(_length.text.replaceAll(',', '.')),
-                      ),
-                    ),
           ),
         ],
       ),

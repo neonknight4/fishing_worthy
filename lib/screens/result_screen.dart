@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:http/http.dart' as http;
 import '../data/fishing_seasons.dart';
 import '../logic/bait_advisor.dart';
 import '../logic/bait_recommender.dart';
@@ -17,6 +15,7 @@ import '../models/diary_entry.dart';
 import '../models/fishing_score.dart';
 import '../models/technique_score.dart';
 import '../models/weather_data.dart';
+import '../services/shop_link.dart';
 import '../services/favorites_service.dart';
 import '../services/rhmz_service.dart';
 import 'diary_entry_screen.dart';
@@ -1431,24 +1430,7 @@ class _ProductRow extends StatelessWidget {
     }
   }
 
-  static const _shopFallback = 'https://www.m-fishing.rs/shop/';
-
-  /// Otvara m-fishing stranicu proizvoda. Ako je stranica uklonjena (404),
-  /// vodi na prodavnicu (`/shop/`) kao safe-case.
-  Future<void> _openProduct() async {
-    final url = product.productUrl;
-    if (url == null) return;
-    var target = url;
-    try {
-      final resp = await http
-          .head(Uri.parse(url))
-          .timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 404 || resp.statusCode == 410) target = _shopFallback;
-    } catch (_) {
-      // Mreža/timeout/HEAD nedozvoljen — probaj originalni link.
-    }
-    await launchUrl(Uri.parse(target), mode: LaunchMode.externalApplication);
-  }
+  Future<void> _openProduct() => ShopLink.open(product.productUrl, placement: 'recept');
 
   @override
   Widget build(BuildContext context) {

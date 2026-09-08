@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import '../models/weather_data.dart';
+import 'api_cache.dart';
 
 class WaterService {
   // Cached offline dataset of named Serbian fishing waters.
@@ -76,11 +77,23 @@ class WaterService {
       },
     );
 
+    // Protok ide u disk keš — na vodi bez signala vodostaj i dalje ulazi u ocenu.
+    final key = ApiCache.coordKey('flood', lat, lon);
+    String? body;
     try {
       final response = await http.get(uri).timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) return null;
+      if (response.statusCode == 200) {
+        body = response.body;
+        await ApiCache.put(key, body);
+      }
+    } catch (_) {
+      // pada na keš ispod
+    }
+    body ??= (await ApiCache.get(key))?.body;
+    if (body == null) return null;
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+    try {
+      final data = jsonDecode(body) as Map<String, dynamic>;
       final daily = data['daily'] as Map<String, dynamic>?;
       if (daily == null) return null;
 

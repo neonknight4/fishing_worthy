@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'api_cache.dart';
 
 /// Real water temperature from the nearest RHMZ hydrological station.
 class WaterTempReading {
@@ -43,6 +44,10 @@ class LevelForecastReading {
 
 class RhmzService {
   static const _url = 'https://www.hidmet.gov.rs/ciril/osmotreni/stanje_voda.php';
+  // Disk keš drži izvod (hm_id → °C, stanica → nivoi), ne sirov HTML.
+  static const _tempCacheKey = 'rhmz_temps';
+  static const _levelCacheKey = 'rhmz_levels';
+  static const _diskMaxAge = Duration(days: 2);
   static const _forecastUrl =
       'https://www.hidmet.gov.rs/ciril/prognoza/prognoza_voda.php';
 
@@ -101,14 +106,29 @@ class RhmzService {
       final resp = await client
           .get(Uri.parse(_url), headers: {'User-Agent': 'Mozilla/5.0'})
           .timeout(const Duration(seconds: 15));
-      if (resp.statusCode != 200) return _tempCache ?? {};
-      final temps = _parseTemps(resp.body);
-      _tempCache = temps;
-      _tempFetchedAt = now;
-      return temps;
+      if (resp.statusCode == 200) {
+        final temps = _parseTemps(resp.body);
+        if (temps.isNotEmpty) {
+          _tempCache = temps;
+          _tempFetchedAt = now;
+          await ApiCache.put(_tempCacheKey, jsonEncode(temps));
+          return temps;
+        }
+      }
+    } catch (_) {
+      // Nema mreže / TLS pao — pada na disk keš ispod.
     } finally {
       client.close();
     }
+
+    if (_tempCache != null) return _tempCache!;
+    final cached = await ApiCache.get(_tempCacheKey, maxAge: _diskMaxAge);
+    if (cached == null) return {};
+    final m = (jsonDecode(cached.body) as Map<String, dynamic>)
+        .map((k, v) => MapEntry(k, (v as num).toDouble()));
+    _tempCache = m;
+    _tempFetchedAt = now;
+    return m;
   }
 
   Map<String, double> _parseTemps(String htmlBody) {
@@ -186,14 +206,37 @@ class RhmzService {
       final resp = await client
           .get(Uri.parse(_forecastUrl), headers: {'User-Agent': 'Mozilla/5.0'})
           .timeout(const Duration(seconds: 15));
-      if (resp.statusCode != 200) return _levelCache ?? {};
-      final parsed = _parseLevels(resp.body);
-      _levelCache = parsed;
-      _levelFetchedAt = now;
-      return parsed;
+      if (resp.statusCode == 200) {
+        final parsed = _parseLevels(resp.body);
+        if (parsed.isNotEmpty) {
+          _levelCache = parsed;
+          _levelFetchedAt = now;
+          await ApiCache.put(_levelCacheKey, jsonEncode(parsed.map((k, v) =>
+              MapEntry(k, {'r': v.river, 't': v.today, 'f': v.forecast, 'tr': v.trend}))));
+          return parsed;
+        }
+      }
+    } catch (_) {
+      // Nema mreže / TLS pao — pada na disk keš ispod.
     } finally {
       client.close();
     }
+
+    if (_levelCache != null) return _levelCache!;
+    final cached = await ApiCache.get(_levelCacheKey, maxAge: _diskMaxAge);
+    if (cached == null) return {};
+    final m = (jsonDecode(cached.body) as Map<String, dynamic>).map((k, v) {
+      final j = v as Map<String, dynamic>;
+      return MapEntry(k, (
+        river: j['r'] as String,
+        today: j['t'] as int,
+        forecast: j['f'] as int,
+        trend: j['tr'] as String,
+      ));
+    });
+    _levelCache = m;
+    _levelFetchedAt = now;
+    return m;
   }
 
   Map<String, ({String river, int today, int forecast, String trend})>

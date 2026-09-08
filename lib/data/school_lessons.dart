@@ -807,20 +807,26 @@ const schoolLessons = <SchoolLesson>[
           purpose: 'Petlja na kraju predveza i na kraju glavne strune — osnova '
               'za loop-to-loop.',
           steps: [
-            ProcedureStep('Presavij kraj najlona na duplo, oko 10 cm.'),
-            ProcedureStep('Napravi običan uzao presavijenim delom, ali ne '
-                'zatežeš.'),
-            ProcedureStep('Provuci petlju kroz uzao još jednom — otud „dupla".'),
-            ProcedureStep('Nakvasi i zategni. Petlja ostaje mala, oko 1 cm.'),
+            ProcedureStep('Presavij kraj najlona na duplo, oko 10 cm, i '
+                'napravi petlju od presavijenog dela.',
+                imageAsset: 'assets/knots/surgeonloop-1.png'),
+            ProcedureStep('Provuci presavijeni kraj kroz petlju — to je prvi '
+                'namotaj. Ne zatežeš još.',
+                imageAsset: 'assets/knots/surgeonloop-2.png'),
+            ProcedureStep('Provuci ga kroz istu petlju još jednom. Dva '
+                'namotaja su ono što je čini „duplom".',
+                imageAsset: 'assets/knots/surgeonloop-3.png'),
+            ProcedureStep('Nakvasi i zategni sve krajeve u isto vreme. Petlja '
+                'ostaje mala, oko 1 cm.',
+                imageAsset: 'assets/knots/surgeonloop-4.png'),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=surgeons+loop+knot',
           videoLabel: 'Vidi video — Dupla petlja',
           mistakes: [
-            LessonNote('Ovaj čvor je jedini bez crteža po koraku — „običan '
-                'uzao" se shematski ne čita jasno. Do ilustracije, video '
-                'pokriva taj deo. Ne meša se sa hirurškim čvorom ispod: '
-                'dupla petlja pravi PETLJU na kraju jedne strune, hirurški '
-                'SPAJA dve strune.'),
+            LessonNote('Ne meša se sa hirurškim čvorom ispod: dupla petlja '
+                'pravi PETLJU na kraju jedne strune, hirurški SPAJA dve '
+                'strune. Zadnji korak to pokazuje — ovde na kraju stoji '
+                'petlja, tamo neprekidna struna sa dva odrezana kraja.'),
             LessonNote('Prevelika petlja se zapetljava o hranilicu pri '
                 'zabačaju.'),
           ],

@@ -47,6 +47,13 @@ PANELS = {
         'palomar-3': (95, 385, 725, 885),
         'palomar-4': (840, 560, 1736, 840),
     },
+    # Dupla petlja (surgeon's loop): 4 panela vertikalno (1000x1573).
+    'surgeon-loop': {
+        'surgeonloop-1': (0, 15, 1000, 400),
+        'surgeonloop-2': (0, 460, 1000, 855),
+        'surgeonloop-3': (0, 900, 1000, 1225),
+        'surgeonloop-4': (0, 1280, 1000, 1490),
+    },
     # Hirurški čvor: 4 panela vertikalno, brojevi levo (1199x1312).
     'surgeon': {
         'surgeon-1': (100, 40, 1199, 180),

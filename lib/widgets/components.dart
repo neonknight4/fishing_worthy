@@ -551,7 +551,7 @@ class ConditionTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 19, color: c.water),
-          const SizedBox(height: 7),
+          const SizedBox(height: 6),
           RichText(
             text: TextSpan(
               text: value,
@@ -565,9 +565,15 @@ class ConditionTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 5),
-          Text(label,
-              style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted)),
+          const SizedBox(height: 4),
+          // Ploča stoji u ćeliji fiksne visine, a labele poput „Vetar SZ" se
+          // prelamaju u dva reda — bez Flexible-a to prelije ćeliju.
+          Flexible(
+            child: Text(label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.ui(size: 11, weight: FontWeight.w600, color: c.muted)),
+          ),
           if (delta != null) ...[
             const SizedBox(height: 2),
             Text(delta!,

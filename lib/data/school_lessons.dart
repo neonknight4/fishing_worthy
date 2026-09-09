@@ -1993,13 +1993,43 @@ const schoolLessons = <SchoolLesson>[
     tags: [Topic.opste, Topic.feeder],
     level: Level.pocetnik,
     lead: 'Udica je jedina tačka koja drži ribu, a čvor na njoj je najslabija '
-        'tačka celog sistema. Pet načina pokriva sve: dva univerzalna, jedan '
-        'za method i pelet, jedan za pravac izvlačenja, i jedan za udice bez '
-        'ušice. Jedno pravilo važi za svaki — nakvasi pre zatezanja, jer suvo '
-        'zatezanje pregoreva najlon i odnese pola jačine.',
+        'tačka celog sistema. Pet načina pokriva sve: jedan za udice bez '
+        'ušice, dva univerzalna, jedan za method i pelet, i jedan za pravac '
+        'izvlačenja. Jedno pravilo važi za svaki — nakvasi pre zatezanja, jer '
+        'suvo zatezanje pregoreva najlon i odnese pola jačine.',
     sections: [
       LessonSection(
-        title: '1 · Palomar — ušica',
+        title: '1 · Lopatica — udica BEZ ušice',
+        sequence: StepSequence(
+          purpose: 'Udice bez ušice imaju spljoštenu lopaticu na vrhu struka. '
+              'Nema kroz šta da se provuče — namotaji su jedino što drži.',
+          videoUrl: 'https://www.youtube.com/results?search_query=spade+end+hook+knot',
+          videoLabel: 'Vidi video — Spade end',
+          steps: [
+            ProcedureStep('Položi strunu uz struk, tako da kraj gleda ka '
+                'lopatici.', imageAsset: 'assets/knots/lopatica-1.png'),
+            ProcedureStep('Namotaj radni deo oko struka i strune, šest do '
+                'osam gustih namotaja.', imageAsset: 'assets/knots/lopatica-2.png'),
+            ProcedureStep('Provuci kraj ispod svih namotaja i zategni ih ka '
+                'lopatici.', imageAsset: 'assets/knots/lopatica-3.png'),
+            ProcedureStep('Nakvasi, zategni i proveri da struna izlazi sa '
+                'UNUTRAŠNJE strane struka — inače udica stoji ukoso.',
+                imageAsset: 'assets/knots/lopatica-4.png'),
+          ],
+          mistakes: [
+            LessonNote('Struna izlazi sa spoljne strane — udica se pri zabodu '
+                'okreće u stranu i promašuje.'),
+            LessonNote('Namotaji koji pređu preko lopatice mogu da se '
+                'presecu o njenu ivicu.'),
+          ],
+        ),
+        notes: [
+          LessonNote('Lopatica se koristi u takmičarskom i finom ribolovu — '
+              'čvor je manji i profil je tanji od ušice.'),
+        ],
+      ),
+      LessonSection(
+        title: '2 · Palomar — ušica',
         sequence: StepSequence(
           purpose: 'Najjači i najlakši čvor za udicu, varalicu i vrtilo. '
               'Prvi koji treba naučiti.',
@@ -2033,7 +2063,7 @@ const schoolLessons = <SchoolLesson>[
         ],
       ),
       LessonSection(
-        title: '2 · Uni / grinner — ušica',
+        title: '3 · Uni / grinner — ušica',
         sequence: StepSequence(
           purpose: 'Univerzalni čvor. Radi na monofilu, fluorokarbonu i '
               'upletenici, i prolazi kroz male ušice.',
@@ -2063,7 +2093,7 @@ const schoolLessons = <SchoolLesson>[
         ],
       ),
       LessonSection(
-        title: '3 · Knotless (no-knot) — ušica',
+        title: '4 · Knotless (no-knot) — ušica',
         sequence: StepSequence(
           purpose: 'Za hair rig: mamac stoji na kratkoj niti PORED udice, ne '
               'na njoj. Bez ovoga nema method-a sa peletom i bojlijem.',
@@ -2092,7 +2122,7 @@ const schoolLessons = <SchoolLesson>[
         ],
       ),
       LessonSection(
-        title: '4 · Šnelovanje (snell) — ušica',
+        title: '5 · Šnelovanje (snell) — ušica',
         sequence: StepSequence(
           purpose: 'Vuča ide u osi struka, ne pod uglom — udica se okreće i '
               'hvata za usnu. Za krupnije mamce i krupniju ribu.',
@@ -2116,36 +2146,6 @@ const schoolLessons = <SchoolLesson>[
                 'i u jednom redu.'),
           ],
         ),
-      ),
-      LessonSection(
-        title: '5 · Lopatica — udica BEZ ušice',
-        sequence: StepSequence(
-          purpose: 'Udice bez ušice imaju spljoštenu lopaticu na vrhu struka. '
-              'Nema kroz šta da se provuče — namotaji su jedino što drži.',
-          videoUrl: 'https://www.youtube.com/results?search_query=spade+end+hook+knot',
-          videoLabel: 'Vidi video — Spade end',
-          steps: [
-            ProcedureStep('Položi strunu uz struk, tako da kraj gleda ka '
-                'lopatici.', imageAsset: 'assets/knots/lopatica-1.png'),
-            ProcedureStep('Namotaj radni deo oko struka i strune, šest do '
-                'osam gustih namotaja.', imageAsset: 'assets/knots/lopatica-2.png'),
-            ProcedureStep('Provuci kraj ispod svih namotaja i zategni ih ka '
-                'lopatici.', imageAsset: 'assets/knots/lopatica-3.png'),
-            ProcedureStep('Nakvasi, zategni i proveri da struna izlazi sa '
-                'UNUTRAŠNJE strane struka — inače udica stoji ukoso.',
-                imageAsset: 'assets/knots/lopatica-4.png'),
-          ],
-          mistakes: [
-            LessonNote('Struna izlazi sa spoljne strane — udica se pri zabodu '
-                'okreće u stranu i promašuje.'),
-            LessonNote('Namotaji koji pređu preko lopatice mogu da se '
-                'presecu o njenu ivicu.'),
-          ],
-        ),
-        notes: [
-          LessonNote('Lopatica se koristi u takmičarskom i finom ribolovu — '
-              'čvor je manji i profil je tanji od ušice.'),
-        ],
       ),
       LessonSection(
         title: 'Koju udicu — oblik i žica',

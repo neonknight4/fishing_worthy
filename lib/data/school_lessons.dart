@@ -865,14 +865,16 @@ const schoolLessons = <SchoolLesson>[
               'surgeon i blood čvora.',
           strength: 'do 90%',
           steps: [
-            ProcedureStep.ok('Preklopi dva najlona tako da se paralelno '
-                'poklapaju oko 15 cm.', svg: kStepUni2uniK1),
-            ProcedureStep.ok('Prvim najlonom napravi uni čvor oko drugog — '
-                'pet namotaja unutar petlje.', svg: kStepUni2uniK2),
+            ProcedureStep.ok('Preklopi najlone paralelno oko 15 cm, pa prvim '
+                'napravi uni čvor oko drugog — pet namotaja unutar petlje.',
+                imageAsset: 'assets/knots/uni2uni-1.png'),
             ProcedureStep.ok('Ponovi isto drugim najlonom oko prvog.',
-                svg: kStepUni2uniK3),
-            ProcedureStep.ok('Nakvasi, zategni svaki čvor pojedinačno, pa '
-                'povuci oba najlona da se čvorovi spoje.', svg: kStepUni2uniK4),
+                imageAsset: 'assets/knots/uni2uni-2.png'),
+            ProcedureStep.ok('Nakvasi, pa zategni svaki čvor pojedinačno.',
+                imageAsset: 'assets/knots/uni2uni-3.png'),
+            ProcedureStep.ok('Povuci oba najlona da se čvorovi spoje i legnu '
+                'jedan uz drugi.',
+                imageAsset: 'assets/knots/uni2uni-4.png'),
           ],
           videoUrl: 'https://www.youtube.com/results?search_query=uni+to+uni+knot',
           videoLabel: 'Vidi video — Uni-na-uni',

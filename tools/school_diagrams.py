@@ -881,7 +881,6 @@ FAMILIES = [
     ('Lure', 'kLure', LURES),
     ('Line', 'kLine', LINES),
     ('Layer', 'kLayer', LAYERS),
-    ('Uni2Uni', 'kStepUni2uni', UNI2UNI_STEPS),
 ]
 
 

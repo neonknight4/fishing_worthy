@@ -15,7 +15,7 @@ from PIL import Image
 MAX_SIDE = 820  # line art se ne gleda veće; drži PNG male
 
 
-def auto_rows(src, expected, gap=14, step=3):
+def auto_rows(src, expected, gap=14, step=3, head=False):
     """Nalazi panele u slici složenoj vertikalno, po prazninama u tinti.
 
     Ručno pogađanje koordinata je već jednom odsekло dno crteža (dupla petlja,
@@ -43,11 +43,13 @@ def auto_rows(src, expected, gap=14, step=3):
     bands.append((start, prev))
     # Odbaci šum (jedan red piksela na ivici screenshot-a i sl.)
     bands = [(a, b) for a, b in bands if b - a >= 8]
-    # Naslov slike je uvek prvi band, paneli idu posle — uzmi poslednjih n.
     if len(bands) < expected:
         raise SystemExit(
             f'nadjeno {len(bands)} bandova, treba {expected}: {bands}')
-    return bands[-expected:]
+    # Naslov slike je uvek PRVI band, pa se podrazumevano uzimaju poslednjih n.
+    # `head=True` uzima prvih n — za slike bez naslova gde je zadnji panel
+    # samo „gotov čvor" i ne treba nam.
+    return bands[:expected] if head else bands[-expected:]
 
 
 def panel(src, box, out, pad=14):
@@ -105,6 +107,9 @@ PANELS = {
     'knotless': ('rows', 4, 'knotless', 0),
     # Šnelovanje: 3 panela, čista detekcija.
     'snell': ('rows', 3, 'snell', 0),
+    # Uni-na-uni: slika ima 5 panela, zadnji je samo gotov čvor — uzimamo
+    # prva 4 (head), jer 4. već pokazuje spojene i zategnute čvorove.
+    'uni2uni': ('rows-head', 4, 'uni2uni', 0),
     # Lopatica: labela „6 x" premošćuje prazninu između panela 2 i 3, pa
     # auto-detekcija spoji ta dva. Rez na najmanjoj gustini tinte (y=882).
     'lopatica': {
@@ -122,8 +127,8 @@ if __name__ == '__main__':
     src = Image.open(src_path).convert('RGB')
     spec = PANELS[which]
     if isinstance(spec, tuple):
-        _, n, prefix, x0 = spec
-        bands = auto_rows(src, n)
+        kind, n, prefix, x0 = spec
+        bands = auto_rows(src, n, head=kind == 'rows-head')
         boxes = {f'{prefix}-{i}': (x0, a - 4, src.width, b + 4)
                  for i, (a, b) in enumerate(bands, 1)}
     else:
